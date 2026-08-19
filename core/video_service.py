@@ -129,7 +129,7 @@ class VideoService:
 
         # 成功统计发送
         line_parts = [
-            f"🎬 视频生成成功",
+            "🎬 视频生成成功",
             f"⏱ API响应 {api_latency:.1f}s",
             f"发送 {send_latency:.1f}s",
             f"重试 {retries}次",
@@ -139,6 +139,7 @@ class VideoService:
         await event.send(MessageEventResult().message(" | ".join(line_parts)))
 
     async def _download_video_to_temp(self, download_url: str) -> Tuple[str, int]:
+        import tempfile
         cache_dir = self.plugin._cache_dir or Path(tempfile.gettempdir())
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -150,7 +151,6 @@ class VideoService:
                     raise RuntimeError(f"下载视频失败 (HTTP {resp.status})")
                 raw = await resp.read()
         
-        import tempfile
         tmp_obj = tempfile.NamedTemporaryFile(
             prefix="agnes_video_",
             suffix=".mp4",

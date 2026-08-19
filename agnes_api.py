@@ -605,7 +605,8 @@ def _build_video_payload(config: AgnesVideoRequestConfig) -> dict[str, Any]:
         image_list = [ref.strip() for ref in ref_images if ref and ref.strip()]
         if len(image_list) == 1:
             # 单图生视频（Agnes 视频接口要求传入纯公网 HTTP(S) 图片 URL）
-            payload["input_image"] = image_list[0]
+            # 实测（2026-08-19）：后端当前只识别顶层 image 字段，input_image 会被忽略导致视频与参考图无关
+            payload["image"] = image_list[0]
         elif len(image_list) > 1:
             # 多图视频或关键帧：Agnes 要求传入多图时必须显式指定 mode="keyframes"
             payload["mode"] = "keyframes"
@@ -648,6 +649,10 @@ async def generate_video_task(config: AgnesVideoRequestConfig) -> tuple[str, flo
                 video_id = data.get("video_id")
                 if not task_id and not video_id:
                     raise Exception(f"提交视频任务失败，未返回任务 ID: {resp_text}")
+        except AgnesAPIError:
+            # 保留原始 AgnesAPIError（status/body/error_code/error_message），
+            # 供上层 _format_error_message 展示具体的错误码与错误信息（如 video_queue_full）
+            raise
         except Exception as e:
             raise Exception(f"提交视频任务请求失败: {e}")
             

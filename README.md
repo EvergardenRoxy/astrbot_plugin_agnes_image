@@ -37,6 +37,8 @@
 - **大模型原生视频工具 (`agnes_submit_video` & `agnes_check_video`)**：注册 `@llm_tool` 视频生成双子工具，支持图生视频（自动检测消息中的参考图片）和文生视频，可通过自然语言指定生成内容、分辨率（`resolution`）、长宽比（`aspect_ratio`）与时长（`duration`）等参数；工具分离了提交与进度查询逻辑，实现更自然流畅的多轮对话交互。
   - 💡 注：受限于 OneBot 协议端（如 QQ）单轮消息事件的触发机制，一次对话中无法**自动连续完成“提交+进度轮询”**。并为了防止采用单工具完成“提交+进度轮询”在长时间的视频生成等待过程中大模型对用户没有任何回复而造成体验割裂，故本插件采用双视频工具，在成功提交任务后，大模型会先提醒用户任务已提交并**交代需用户手动唤醒查询工具**；等待数分钟后，再由用户发送消息唤醒大模型调用 agnes_check_video 查询生成结果。
 
+- **大模型原生工具开关**：可通过插件配置面板中的「启用大模型原生工具」选项，一键控制大模型是否可自动调用生图与视频生成工具（关闭后大模型自动调用将被拦截，但手动指令依然可用）。
+
 ### ⚡ 稳定可靠
 
 - **网络异常自动重试**：`ConnectionResetError` / `ClientPayloadError` / `ClientOSError` 最多自动重试 3 次（间隔 1 秒）
@@ -215,25 +217,41 @@ astrbot_plugin_agnes_image/
 ├── metadata.yaml        # 插件元数据：名称、版本、作者、描述等
 ├── requirements.txt     # Python 依赖声明
 ├── README.md            # 插件说明文档
+├── CHANGELOG.md         # 更新日志
 ├── logo.png             # 插件图标
 └── .gitignore           # Git 忽略规则
 ```
 
 ## 配置说明
 
+配置面板按功能分为三个大框：
+
+### API 与大模型工具配置
+
 | 字段 | 说明 | 默认值 |
 | --- | --- | --- |
 | `api_base` | Agnes AI 网关地址 | `https://apihub.agnes-ai.cn/v1` |
 | `api_key` | API 密钥（前往官方主页 agnes-ai.com 注册获取免费 Key） | （必填） |
-| `model` | 生图模型 | `agnes-image-2.1-flash` |
 | `proxy` | 代理地址（留空不使用，支持 http/https/socks5） | （空） |
-| `default_resolution` | 默认分辨率档位（`1K`/`2K`/`4K`） | `1K` |
-| `default_aspect_ratio` | 默认长宽比（10 种预设） | `3:2` |
-| `default_quality` | 默认质量档（`auto`/`low`/`medium`/`high`） | `high` |
-| `output_format` | 图片发送方式（`url` 直发 / `auto` 智能切换） | `url` |
-| `auto_threshold` | 智能切换文件大小阈值 (MB) | `2` |
-| `keep_original_size` | 改图时按参考图原比例生图（自动匹配最接近的预设比例） | `true` |
-| `request_timeout` | API 请求超时时间（秒） | `300` |
+| `enable_llm_tools` | 启用大模型原生工具（开启后，可用自然语言要求大模型进行图片和视频生成） | `true` |
+
+### 生图设置
+
+| 字段 | 说明 | 默认值 |
+| --- | --- | --- |
+| `model` | 生图模型（默认 agnes-image-2.1-flash，可切换至其他 Agnes 生图模型） | `agnes-image-2.1-flash` |
+| `default_resolution` | 默认分辨率档位（`1K`/`2K`/`4K`，4K 生成耗时较长约 2 分钟） | `1K` |
+| `default_aspect_ratio` | 默认长宽比（支持 `1:1`/`16:9`/`9:16`/`4:3`/`3:2`/`21:9` 等 10 种预设） | `3:2` |
+| `default_quality` | 默认质量档（`auto`/`low`/`medium`/`high`，作为后缀附加到提示词） | `high` |
+| `output_format` | 图片发送方式（`url` 直发零带宽 / `auto` 智能切换） | `url` |
+| `auto_threshold` | 智能切换文件大小阈值（单位 MB，超过该大小的图片自动下载后走流式上传） | `2` |
+| `keep_original_size` | 改图时按参考图原比例生图（自动匹配最接近的预设比例，可用命令行 `--keep-size` 临时覆盖） | `true` |
+| `request_timeout` | 图片 API 请求超时时间（秒，生图接口调用上限） | `300` |
+
+### 视频设置
+
+| 字段 | 说明 | 默认值 |
+| --- | --- | --- |
 | `video_model` | 生视频模型 | `agnes-video-v2.0` |
 | `video_default_resolution` | 默认视频分辨率（`480p`/`720p`/`1080p`） | `480p` |
 | `video_default_aspect_ratio` | 默认视频长宽比 | `16:9` |
@@ -247,8 +265,6 @@ astrbot_plugin_agnes_image/
 | `third_party_upload_url` | 第三方图床上传 API 地址 | （空） |
 | `third_party_token` | 第三方图床上传 Token / Key | （空） |
 
-## 常见问题 (FAQ)
-
 ### 为什么自然语言要求 Bot 生成视频无法一次完成“提交+进度轮询”？
 - **原因说明**：受限于 OneBot 协议端（如 QQ）单轮消息事件的触发机制，一次对话中无法**自动连续完成“提交+进度轮询”**。为了防止采用单工具在长时间（数分钟）的视频生成等待过程中，大模型对用户没有任何回复而造成严重的交互体验割裂，本插件采用了双视频工具架构（`agnes_submit_video` 与 `agnes_check_video`）。
 - **交互逻辑**：在成功提交任务后，大模型会先回复一条自然语言提醒用户任务已提交，并**交代需用户手动唤醒查询工具**；等待数分钟后，再由用户发送消息唤醒大模型调用 `agnes_check_video` 查询并发送最终生成结果。
@@ -261,6 +277,14 @@ astrbot_plugin_agnes_image/
 
 ### 为什么生成的图生视频与提供的参考图无关？
 - **原因说明**：若出现图生视频能正常生成但画面与参考图无关的情况，系 Agnes 官方云端图片解析服务临时挂起、后台隐蔽将请求降级为纯文本生成（t2v）所致，请稍后重试。
+
+### 图生视频报 400 "image URL could not be downloaded"（AstrBot 文件服务对 Agnes 云端不可达）怎么办？
+- **原因说明**：插件通过 AstrBot 文件服务（默认监听非常用端口，如 `6185`）生成参考图公网链接。**Agnes 云端有时可能对非常用端口（如 6185）无法访问**——即使本机或本人在浏览器能打开该链接，Agnes 云端也下载不了，因此报 `400 image URL could not be downloaded or did not return a valid supported image`。
+- **解决办法（任选其一）**：
+  1. **nginx 反向代理（推荐）**：在宿主机 nginx 的 80 端口 server 块中添加 `location /api/file/` 与 `location /api/v1/files/` 反代到本机 `http://127.0.0.1:6185`，再把插件配置 `video_file_service_base_url` 改为 `http://<服务器公网IP>:80`，重载插件即可。
+  2. **内网穿透**：用 frp / cloudflared 等把文件服务映射到公网域名（80/443 端口），并更新 `video_file_service_base_url`。
+  3. **第三方图床**：将 `video_img_handling_method` 改为 `third_party`，配置公网可访问的图床（如 sm.ms / ImgURL / 聚合图床等）的 `third_party_upload_url` 与 `third_party_token`。
+
 
 ## 关于 Agnes AI
 

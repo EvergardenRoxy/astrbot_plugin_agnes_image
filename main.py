@@ -65,13 +65,28 @@ _AGNES_FILE_SERVICE_MAGIC_PATCHED = False
     "astrbot_plugin_agnes_image",
     "往昔的涟漪",
     "Agnes AI 图像与视频生成插件，依据 Agnes 官方文档进行了原生适配以实现完全免费、较高质量的定制化生成体验，支持文生图、图生图以及视频生成。",
-    "2.1.2",
+    "2.1.3",
     "https://github.com/CyreneLian/astrbot_plugin_agnes_image",
 )
 class AgnesImagePlugin(Star):
     """Agnes AI 图像生成插件"""
     def __init__(self, context: Context, config: dict[str, Any]):
         super().__init__(context)
+        # 兼容分组配置（API 与大模型工具配置 / 生图设置 / 视频设置）：
+        # 将各分组内的配置项摊平到顶层，便于各处按原键名读取，同时兼容旧的扁平配置。
+        # 注意：必须通过「创建新字典」合并，绝不能修改传入的 config 对象本身，
+        # 否则会污染 AstrBot 共享的 AstrBotConfig 实例，导致配置面板渲染出多余的扁平配置项。
+        _meta_keys = {"type", "description", "hint", "obvious_hint", "items", "default", "options", "slider"}
+        _flattened = {}
+        for _group_val in list((config or {}).values()):
+            if isinstance(_group_val, dict):
+                _items = _group_val.get("items") if isinstance(_group_val.get("items"), dict) else _group_val
+                if isinstance(_items, dict):
+                    for _k, _v in _items.items():
+                        if _k not in _meta_keys:
+                            _flattened[_k] = _v
+        if _flattened:
+            config = {**(config or {}), **_flattened}
         # 1. 配置模型化
         self.plugin_config = AgnesPluginConfig.from_dict(config or {})
         try:
@@ -593,6 +608,39 @@ class AgnesImagePlugin(Star):
                 if len(exc.body) > 200:
                     preview += "…"
                 lines.append(f"📦 响应预览：{preview}")
+
+            # 根据 HTTP 状态码 / 错误码 / 响应内容，附加简短的解决办法提示
+            tip = None
+            tips_by_status = {
+                400: "💡 提示：请求参数有误，可检查参考图 URL 是否公网可访问、参数是否符合官方文档",
+                401: "💡 提示：API Key 无效或已过期，请到插件设置中更新 API Key",
+                403: "💡 提示：没有访问权限，请检查账号权限或额度",
+                404: "💡 提示：接口地址不存在，请检查 api_base 配置是否正确",
+                413: "💡 提示：请求内容过大，可压缩图片或降低分辨率",
+                422: "💡 提示：请求参数语义有误，请检查参数是否符合官方文档",
+                429: "💡 提示：请求过快或配额已用完，请稍后重试",
+            }
+            if status and 500 <= status < 600:
+                tip = "💡 提示：Agnes 服务端暂时不可用（可能维护或过载），请稍后重试"
+            else:
+                tip = tips_by_status.get(status or 0)
+            if exc.error_code:
+                tips_by_error_code = {
+                    "video_queue_full": "💡 提示：Agnes 视频队列繁忙，请稍后重试",
+                    "video_queue_unavailable": "💡 提示：Agnes 视频上传服务暂不可用，请稍后重试",
+                    "invalid_request": "💡 提示：请求无效，请检查参数（尤其是参考图 URL 需公网可访问）",
+                }
+                tip = tips_by_error_code.get(exc.error_code, tip)
+            if exc.body:
+                body_lower = exc.body.lower()
+                if "could not be downloaded" in body_lower or "valid supported image" in body_lower:
+                    tip = "💡 提示：参考图 URL 需公网可访问（Agnes 云端有时可能对非常用端口如 6185 无法访问），可改用公网图床或将文件服务反代到 80/443 端口"
+                elif "video_queue_full" in body_lower or "video_queue_unavailable" in body_lower or "queue is full" in body_lower:
+                    tip = "💡 提示：Agnes 视频队列繁忙或上传服务暂不可用，请稍后重试"
+                elif "model" in body_lower and ("not found" in body_lower or "不存在" in body_lower):
+                    tip = "💡 提示：模型名称可能有误，请检查插件配置中的模型设置"
+            if tip:
+                lines.append(tip)
         else:
             lines.append("❌ Agnes 调用失败")
             err_type = type(exc).__name__
@@ -649,6 +697,9 @@ class AgnesImagePlugin(Star):
             aspect_ratio (str, optional): 图片长宽比，如 '1:1', '16:9', '4:3', '3:2', '9:16', '3:4', '2:3' 等。默认为空（使用默认长宽比）。
             resolution (str, optional): 分辨率档位，如 '1K', '2K'。默认为空（使用默认分辨率）。
         """
+
+        if not self.plugin_config.enable_llm_tools:
+            return "❌ 大模型生图/视频工具已被管理员在插件设置中关闭（API 与大模型工具配置 -> 启用大模型原生工具）。"
         if not prompt.strip():
             return "生成失败：请提供要画的图像描述提示词。"
 
@@ -874,6 +925,9 @@ class AgnesImagePlugin(Star):
             aspect_ratio (str, optional): 视频长宽比，如 '16:9', '9:16', '1:1', '4:3', '3:4'。默认为插件配置的默认比例。
             duration (str, optional): 视频时长，如 '5s', '10s', '15s'。默认为插件配置的默认时长。
         """
+
+        if not self.plugin_config.enable_llm_tools:
+            return "❌ 大模型生图/视频工具已被管理员在插件设置中关闭（API 与大模型工具配置 -> 启用大模型原生工具）。"
         if not prompt.strip():
             return "error:生成失败：请提供要生成的视频描述。"
 
@@ -932,8 +986,9 @@ class AgnesImagePlugin(Star):
             async with session.post(url, json=payload, headers=headers, ssl=False) as resp:
                 body = await resp.text()
                 if resp.status != 200:
-                    err_msg = _parse_error_body(body)
-                    return f"error:提交视频任务失败 (HTTP {resp.status}) - {err_msg}"
+                    err_code, err_msg = _parse_error_body(body)
+                    detail = " / ".join(x for x in (err_code, err_msg) if x) or "未知错误"
+                    return f"error:提交视频任务失败 (HTTP {resp.status}) - {detail}"
                 import json
                 data = json.loads(body)
                 task_id = data.get("id") or data.get("task_id")
@@ -958,6 +1013,9 @@ class AgnesImagePlugin(Star):
         Args:
             task_id (str): 之前由 agnes_submit_video 返回的任务 ID。
         """
+
+        if not self.plugin_config.enable_llm_tools:
+            return "❌ 大模型生图/视频工具已被管理员在插件设置中关闭（API 与大模型工具配置 -> 启用大模型原生工具）。"
         if not task_id.strip():
             return "error:缺少 task_id"
 
@@ -977,8 +1035,9 @@ class AgnesImagePlugin(Star):
                 async with session.get(poll_url, headers=headers, ssl=False) as resp:
                     if resp.status != 200:
                         body = await resp.text()
-                        err_msg = _parse_error_body(body)
-                        return f"error:轮询视频任务失败 (HTTP {resp.status}) - {err_msg}"
+                        err_code, err_msg = _parse_error_body(body)
+                        detail = " / ".join(x for x in (err_code, err_msg) if x) or "未知错误"
+                        return f"error:轮询视频任务失败 (HTTP {resp.status}) - {detail}"
                     
                     data = await resp.json()
                     status = data.get("status")
@@ -986,7 +1045,7 @@ class AgnesImagePlugin(Star):
                         meta = data.get("metadata", {})
                         video_url = meta.get("url") or data.get("video_url") or data.get("file_url")
                         if not video_url:
-                            return f"error:视频已完成但未找到 URL"
+                            return "error:视频已完成但未找到 URL"
                         
                         # 手动发送视频给用户
                         mer = MessageEventResult()
@@ -1179,7 +1238,7 @@ class AgnesImagePlugin(Star):
                 second_msg = f"⏳ 视频生成任务已提交，预计需要几分钟（时长: {video_duration}），请耐心等待..."
             await event.send(MessageEventResult().message(second_msg))
         else:
-            reference_images, convert_notices, ref_status, ref_dims = [], [], None, []
+            reference_images, _convert_notices, ref_status, ref_dims = [], [], None, []
             yield event.plain_result("🌸 正在调用Agnes生成视频...\n⏳ 视频生成任务已提交，预计需要几分钟（时长: {0}），请耐心等待...".format(video_duration))
 
         res = opts.get("res") or self.plugin_config.video_default_resolution
