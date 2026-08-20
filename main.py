@@ -65,7 +65,7 @@ _AGNES_FILE_SERVICE_MAGIC_PATCHED = False
     "astrbot_plugin_agnes_image",
     "往昔的涟漪",
     "Agnes AI 图像与视频生成插件，依据 Agnes 官方文档进行了原生适配以实现完全免费、较高质量的定制化生成体验，支持文生图、图生图以及视频生成。",
-    "2.1.3",
+    "2.1.4",
     "https://github.com/CyreneLian/astrbot_plugin_agnes_image",
 )
 class AgnesImagePlugin(Star):
@@ -983,7 +983,7 @@ class AgnesImagePlugin(Star):
             }
             url = f"{cfg.api_base.rstrip('/')}/videos"
             session = await _get_agnes_session(cfg.proxy)
-            async with session.post(url, json=payload, headers=headers, ssl=False) as resp:
+            async with session.post(url, json=payload, headers=headers) as resp:
                 body = await resp.text()
                 if resp.status != 200:
                     err_code, err_msg = _parse_error_body(body)
@@ -1032,7 +1032,7 @@ class AgnesImagePlugin(Star):
             
             t0 = time.monotonic()
             while time.monotonic() - t0 < int(self.plugin_config.video_request_timeout):
-                async with session.get(poll_url, headers=headers, ssl=False) as resp:
+                async with session.get(poll_url, headers=headers) as resp:
                     if resp.status != 200:
                         body = await resp.text()
                         err_code, err_msg = _parse_error_body(body)
