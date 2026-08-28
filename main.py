@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import base64 as _b64
-import shlex
 import tempfile
 import os
 import time
@@ -47,8 +46,15 @@ from .agnes_api import (
 
 # Agnes 支持的图像生成模型（来自 /v1/models 实测，仅保留生图模型）
 AGNES_MODELS = [
-    "agnes-image-2.1-flash",
     "agnes-image-2.0-flash",
+    "agnes-image-2.1-flash",
+]
+
+# Agnes 视频生成模型列表
+AGNES_VIDEO_MODELS = [
+    "agnes-video-v2.0",
+    "agnes-video-2.5-flash",
+    "agnes-video-2.5",
 ]
 
 # 插件名
@@ -65,7 +71,7 @@ _AGNES_FILE_SERVICE_MAGIC_PATCHED = False
     "astrbot_plugin_agnes_image",
     "往昔的涟漪",
     "Agnes AI 图像与视频生成插件，依据 Agnes 官方文档进行了原生适配以实现完全免费、较高质量的定制化生成体验，支持文生图、图生图以及视频生成。",
-    "2.1.4",
+    "2.2.0",
     "https://github.com/CyreneLian/astrbot_plugin_agnes_image",
 )
 class AgnesImagePlugin(Star):
@@ -663,21 +669,26 @@ class AgnesImagePlugin(Star):
         return "\n".join(lines)
 
     def _validate_inline_opts(self, opts: dict[str, str]) -> str | None:
+        errors: list[str] = []
         if "res" in opts and opts["res"] not in PRESET_RESOLUTIONS:
-            return f"❌ --res 仅支持 {'/'.join(PRESET_RESOLUTIONS)}，当前值：{opts['res']}"
+            errors.append(f"◆ --res 仅支持 {'/'.join(PRESET_RESOLUTIONS)}，当前值：{opts['res']}")
         if "ratio" in opts and opts["ratio"] not in PRESET_ASPECT_RATIOS:
-            return f"❌ --ratio 仅支持 {'/'.join(PRESET_ASPECT_RATIOS)}，当前值：{opts['ratio']}"
+            errors.append(f"◆ --ratio 仅支持 {'/'.join(PRESET_ASPECT_RATIOS)}，当前值：{opts['ratio']}")
         if "quality" in opts and opts["quality"] not in PRESET_QUALITIES:
-            return f"❌ --quality 仅支持 {'/'.join(PRESET_QUALITIES)}，当前值：{opts['quality']}"
+            errors.append(f"◆ --quality 仅支持 {'/'.join(PRESET_QUALITIES)}，当前值：{opts['quality']}")
         if "model" in opts and opts["model"] not in AGNES_MODELS:
-            return f"❌ --model 仅支持 {'/'.join(AGNES_MODELS)}，当前值：{opts['model']}"
+            errors.append(f"◆ --model 仅支持 {'/'.join(AGNES_MODELS)}，当前值：{opts['model']}")
 
         selected_model = opts.get("model") or self.plugin_config.model
         selected_res = opts.get("res") or self.plugin_config.default_resolution
         if selected_res == "4K" and selected_model != "agnes-image-2.1-flash":
-            return "❌ `4K` 仅支持 `agnes-image-2.1-flash`，请切换模型或改用 `--res 2K`。"
+            errors.append("◆ `agnes-image-2.0-flash` 不支持4k，请切换模型或改用 `--res 2K`。")
 
-        return None
+        if not errors:
+            return None
+        if len(errors) == 1:
+            return f"❌ {errors[0][1:]}"
+        return "❌ 参数错误（{}项）：\n{}".format(len(errors), "\n".join(errors))
 
     # ===== 指令 =====
 
@@ -686,33 +697,45 @@ class AgnesImagePlugin(Star):
         self,
         event: AstrMessageEvent,
         prompt: str,
+        model: str = "",
         aspect_ratio: str = "",
         resolution: str = ""
     ) -> str:
         """
         当用户表示想生图、画图、绘图、改图或生成图片时调用此工具。根据用户提供的自然语言描述生成一张艺术图片。
 
+        支持的图像模型及其参数：
+        - agnes-image-2.0-flash：分辨率 1K/2K；比例 1:1/16:9/4:3/3:2/9:16/4:5/5:4/21:9/3:4/2:3。
+        - agnes-image-2.1-flash：分辨率 1K/2K/4K；比例 1:1/16:9/4:3/3:2/9:16/4:5/5:4/21:9/3:4/2:3。
+
         Args:
-            prompt (str): 图片生成的详细提示词描述（建议支持详细英文描述或中文描述）。
-            aspect_ratio (str, optional): 图片长宽比，如 '1:1', '16:9', '4:3', '3:2', '9:16', '3:4', '2:3' 等。默认为空（使用默认长宽比）。
-            resolution (str, optional): 分辨率档位，如 '1K', '2K'。默认为空（使用默认分辨率）。
+            prompt (str): 图片生成的详细提示词描述（建议使用较详细英文描述或中文描述）。
+            model (str, optional): 图像模型，可选 agnes-image-2.0-flash / agnes-image-2.1-flash。
+            aspect_ratio (str, optional): 图片长宽比。
+            resolution (str, optional): 分辨率档位。
+            注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
         """
 
         if not self.plugin_config.enable_llm_tools:
             return "❌ 大模型生图/视频工具已被管理员在插件设置中关闭（API 与大模型工具配置 -> 启用大模型原生工具）。"
         if not prompt.strip():
-            return "生成失败：请提供要画的图像描述提示词。"
+            return "error:请提供要画的图像描述提示词。"
 
         if not self.plugin_config.api_key:
-            return "生成失败：Bot 尚未在 Agnes 插件设置中配置 api_key。"
+            return "error:Bot 尚未在 Agnes 插件设置中配置 api_key。"
 
         opts = self.image_service._parse_options(prompt)
         clean_prompt = opts.pop("prompt", prompt.strip())
 
+        # 支持大模型选择模型（白名单校验），为空时使用插件配置的默认模型
+        model_to_use = (model.strip() or opts.get("model") or self.plugin_config.model).strip()
+        if model_to_use not in AGNES_MODELS:
+            return f"error:模型不受支持: {model_to_use}。支持的模型: {' / '.join(AGNES_MODELS)}"
+
         ratio_to_use = aspect_ratio.strip() or opts.get("ratio")
         res_to_use = resolution.strip() or opts.get("res")
 
-        val_opts = {}
+        val_opts = {"model": model_to_use}
         if ratio_to_use:
             val_opts["ratio"] = ratio_to_use
         if res_to_use:
@@ -720,7 +743,7 @@ class AgnesImagePlugin(Star):
 
         err = self._validate_inline_opts(val_opts)
         if err:
-            return f"生成失败：{err}"
+            return f"error:{err}"
 
         try:
             ref_images = await self._extract_reference_images(event)
@@ -735,11 +758,11 @@ class AgnesImagePlugin(Star):
                 resolution=res_to_use,
                 aspect_ratio=ratio_to_use,
                 quality=opts.get("quality"),
-                model=opts.get("model"),
+                model=model_to_use,
             )
         except Exception as e:
             logger.error(f"[agnes] LLM 生图配置构建失败: {e}", exc_info=True)
-            return f"生成失败：配置构建错误 - {e}"
+            return f"error:配置构建错误 - {e}"
 
         t0 = time.monotonic()
         try:
@@ -910,6 +933,7 @@ class AgnesImagePlugin(Star):
         self,
         event: AstrMessageEvent,
         prompt: str,
+        model: str = "",
         resolution: str = "",
         aspect_ratio: str = "",
         duration: str = ""
@@ -919,20 +943,27 @@ class AgnesImagePlugin(Star):
         该工具仅负责提交任务并返回 task_id。
         大模型在成功获得 task_id 后，必须立即向用户回复一条自然语言消息（告知任务已成功提交，并提醒用户过几分钟后再让大模型进行进度查询）。
 
+        支持的视频模型及其参数：
+        - agnes-video-v2.0：分辨率 480p/720p/1080p；比例 16:9/9:16/1:1/4:3/3:4；时长 5s/10s/12s/15s/18s。
+        - agnes-video-2.5-flash：分辨率 720P；比例 16:9/9:16/1:1/4:3/3:4/21:9；时长 5s/10s/12s。
+        - agnes-video-2.5：分辨率 720P/960P/2K；比例 16:9/9:16/1:1/4:3/3:4/21:9；时长 5s/10s/12s。
+
         Args:
-            prompt (str): 视频生成的详细描述（建议支持详细英文描述或中文描述）。
-            resolution (str, optional): 视频分辨率档位，如 '480p', '720p', '1080p'。默认为插件配置的默认分辨率。
-            aspect_ratio (str, optional): 视频长宽比，如 '16:9', '9:16', '1:1', '4:3', '3:4'。默认为插件配置的默认比例。
-            duration (str, optional): 视频时长，如 '5s', '10s', '15s'。默认为插件配置的默认时长。
+            prompt (str): 视频生成的详细描述（建议使用较详细英文描述或中文描述）。
+            model (str, optional): 视频模型，可选 agnes-video-v2.0 / agnes-video-2.5-flash / agnes-video-2.5（注意：agnes-video-2.5 为付费模型，如无用户明确要求请勿主动使用）。
+            resolution (str, optional): 视频分辨率档位。
+            aspect_ratio (str, optional): 视频长宽比。
+            duration (str, optional): 视频时长。
+            注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
         """
 
         if not self.plugin_config.enable_llm_tools:
             return "❌ 大模型生图/视频工具已被管理员在插件设置中关闭（API 与大模型工具配置 -> 启用大模型原生工具）。"
         if not prompt.strip():
-            return "error:生成失败：请提供要生成的视频描述。"
+            return "error:请提供要生成的视频描述。"
 
         if not self.plugin_config.api_key:
-            return "error:生成失败：Bot 尚未在 Agnes 插件设置中配置 api_key。"
+            return "error:Bot 尚未在 Agnes 插件设置中配置 api_key。"
 
         opts = self.image_service._parse_options(prompt)
         clean_prompt = opts.pop("prompt", prompt.strip())
@@ -951,19 +982,48 @@ class AgnesImagePlugin(Star):
                 logger.error(f"[agnes] LLM 生视频提取参考图失败: {e}", exc_info=True)
                 return f"error:生成视频失败：参考图转换失败 {e}"
 
+        # 支持大模型选择模型（白名单校验），为空时使用插件配置的默认模型
+        video_model = (model.strip() or opts.get("model") or self.plugin_config.video_model).strip()
+        if video_model not in AGNES_VIDEO_MODELS:
+            return f"error:模型不受支持: {video_model}。支持的模型: {' / '.join(AGNES_VIDEO_MODELS)}"
+
         res = resolution.strip() or self.plugin_config.video_default_resolution
         ratio = aspect_ratio.strip() or self.plugin_config.video_default_aspect_ratio
         duration_val = duration.strip() or self.plugin_config.video_default_duration
 
-        if res not in ["480p", "720p", "1080p"]:
-            res = self.plugin_config.video_default_resolution
-        if ratio not in ["16:9", "9:16", "1:1", "4:3", "3:4"]:
-            ratio = self.plugin_config.video_default_aspect_ratio
+        # 严格按所选模型校验，非法参数全部收集后组合返回错误（不再静默回退默认值）
+        _caps = self._video_model_caps(video_model)
+        _errors: list[str] = []
+        # 归一化：分辨率统一大写（720p -> 720P），时长统一小写（10S -> 10s），大小写不敏感
+        res_norm = str(res).strip().upper()
+        dur_norm = str(duration_val).strip().lower()
+        allowed_res = {str(r).strip().upper() for r in _caps["res"]}
+        allowed_durs = {str(d).strip().lower() for d in _caps["durations"]}
+        if res_norm not in allowed_res:
+            _errors.append(
+                f"◆ 分辨率档位不受 {video_model} 支持: {res}。"
+                f"支持: {_caps['res_label']}"
+            )
+        if ratio not in set(_caps["ratio"]):
+            _errors.append(
+                f"◆ 长宽比不受 {video_model} 支持: {ratio}。"
+                f"支持: {self._fmt_ratio_list(_caps['ratio'])}"
+            )
+        # 时长校验：按模型能力表（2.5 系列支持 12s，v2.0 不支持）
+        if dur_norm not in allowed_durs:
+            _errors.append(
+                f"◆ 视频时长不受 {video_model} 支持: {duration_val}。"
+                f"支持的时长: {_caps['durations_label']}"
+            )
+        if _errors:
+            if len(_errors) == 1:
+                return f"error:{_errors[0][1:]}"
+            return "error:参数错误（{}项）：\n{}".format(len(_errors), "\n".join(_errors))
 
         cfg = AgnesVideoRequestConfig(
             api_base=self.plugin_config.api_base,
             api_key=self.plugin_config.api_key,
-            model=self.plugin_config.video_model,
+            model=video_model,
             prompt=clean_prompt,
             reference_images=ref_images,
             duration=duration_val,
@@ -1185,6 +1245,38 @@ class AgnesImagePlugin(Star):
         async for out in self._send_image_result(event, result, is_img2img=True):
             yield out
 
+    def _video_model_caps(self, model: str) -> dict:
+        """按当前模型返回支持的分辨率/比例集合与提示文本"""
+        m = (model or "").strip()
+        if m == "agnes-video-2.5-flash":
+            return {
+                "res": ["720P"],
+                "ratio": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+                "res_label": "720P",
+                "durations": ["5s", "10s", "12s"],
+                "durations_label": "5s / 10s / 12s（2.5 系列最长 12 秒）",
+            }
+        if m == "agnes-video-2.5":
+            return {
+                "res": ["720P", "960P", "2K"],
+                "ratio": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+                "res_label": "720P / 960P / 2K",
+                "durations": ["5s", "10s", "12s"],
+                "durations_label": "5s / 10s / 12s（2.5 系列最长 12 秒）",
+            }
+        # 默认：v2.0 及未识别模型
+        return {
+            "res": ["480p", "720p", "1080p"],
+            "ratio": ["16:9", "9:16", "1:1", "4:3", "3:4"],
+            "res_label": "480p / 720p / 1080p",
+            "durations": ["5s", "10s", "12s", "15s", "18s"],
+            "durations_label": "5s / 10s / 12s / 15s / 18s（v2.0 最长约 18 秒）",
+        }
+
+    @staticmethod
+    def _fmt_ratio_list(ratios) -> str:
+        return " / ".join(ratios)
+
     @filter.command("生视频")
     async def cmd_generate_video(self, event: AstrMessageEvent, prompt: str):
         """生视频指令"""
@@ -1206,8 +1298,14 @@ class AgnesImagePlugin(Star):
             yield event.plain_result("❌ 未配置 API Key，请在插件设置中填写。")
             return
 
-        video_model = self.plugin_config.video_model
-        video_duration = self.plugin_config.video_default_duration
+        video_model = opts.get("model") or self.plugin_config.video_model
+        # 生视频指令支持 --model 选择模型（白名单校验）
+        if video_model not in AGNES_VIDEO_MODELS:
+            yield event.plain_result(
+                f"❌ --model 仅支持 {'/'.join(AGNES_VIDEO_MODELS)}，当前值：{video_model}"
+            )
+            return
+        video_duration = opts.get("duration") or self.plugin_config.video_default_duration
         video_output_format = self.plugin_config.video_output_format
 
         is_img2img = False
@@ -1257,7 +1355,7 @@ class AgnesImagePlugin(Star):
                         break
             if first_dim:
                 w0, h0 = first_dim
-                aspect = self.image_service._compute_aspect_ratio(w0, h0, ["16:9", "9:16", "1:1", "4:3", "3:4"])
+                aspect = self.image_service._compute_aspect_ratio(w0, h0, ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"])
                 if aspect:
                     ratio = aspect
                     logger.info(f"[agnes] 视频保留比例已启用，原图 {w0}x{h0} -> 自动匹配比例: {aspect}（分辨率仍按设置）")
@@ -1273,13 +1371,39 @@ class AgnesImagePlugin(Star):
                     f"将按默认/指令比例生成。"
                 )
         
-        if res not in ["480p", "720p", "1080p"]:
-            yield event.plain_result(f"❌ 不支持的分辨率档位: {res}。支持: 480p/720p/1080p")
+        caps = self._video_model_caps(video_model)
+        # 归一化：分辨率统一大写（720p -> 720P），时长统一小写（10S -> 10s），大小写不敏感
+        res_norm = str(res).strip().upper()
+        dur_norm = str(video_duration).strip().lower()
+        allowed_res = {str(r).strip().upper() for r in caps["res"]}
+        allowed_ratio = set(caps["ratio"])
+        allowed_durs = {str(d).strip().lower() for d in caps["durations"]}
+        # 参数严格校验（指令入口）：分辨率/比例/时长错误全部收集后组合报错
+        _errors: list[str] = []
+        if res_norm not in allowed_res:
+            _errors.append(
+                f"◆ 分辨率档位不受 {video_model} 支持: {res}。"
+                f"支持: {caps['res_label']}"
+            )
+        if ratio not in allowed_ratio:
+            _errors.append(
+                f"◆ 长宽比不受 {video_model} 支持: {ratio}。"
+                f"支持: {self._fmt_ratio_list(caps['ratio'])}"
+            )
+        if dur_norm not in allowed_durs:
+            _errors.append(
+                f"◆ 视频时长不受 {video_model} 支持: {video_duration}。"
+                f"支持的时长: {caps['durations_label']}"
+            )
+        if _errors:
+            if len(_errors) == 1:
+                yield event.plain_result(f"❌ {_errors[0][1:]}")
+            else:
+                yield event.plain_result(
+                    f"❌ 参数错误（{len(_errors)}项）：\n" + "\n".join(_errors)
+                )
             return
-        if ratio not in ["16:9", "9:16", "1:1", "4:3", "3:4"]:
-            yield event.plain_result(f"❌ 不支持的长宽比: {ratio}。支持: 16:9/9:16/1:1/4:3/3:4")
-            return
-        
+
         img_w, img_h = None, None
         
         config = AgnesVideoRequestConfig(
@@ -1303,7 +1427,7 @@ class AgnesImagePlugin(Star):
     @filter.command("Agnes帮助")
     async def cmd_help(self, event: AstrMessageEvent):
         """查看帮助"""
-        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.0.1
+        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.2.0
 ━━━━━━━━━━━━
 🌸 核心指令：
 • 生图 <描述> - 生成图片
@@ -1313,10 +1437,11 @@ class AgnesImagePlugin(Star):
 
 💡 内联参数（直接跟在描述后）：
 • 尺寸1K/2K/4K (生图) - 指定分辨率档
-• 尺寸480p/720p/1080p (生视频)
-• 比例16:9/9:16/1:1/4:3/3:4/3:2/2:3... - 长宽比
+• 尺寸480p/720p/1080p/720P/960P/2K (生视频，按模型支持)
+• 时长5s/10s/12s/15s/18s (生视频，按模型支持)
+• 比例1:1/16:9/4:3/3:2/9:16/4:5/5:4/21:9/3:4/2:3 - 长宽比
 • 质量高/中/低/自动 - 附加质量词
-• 模型2.1/2.0 - 指定 Agnes 模型
+• 模型agnes-video-2.5-flash / agnes-image-2.0-flash 等 - 指定具体模型（也可简写 flash / 2.0）
 • 保留原比例 - 自动按参考图原比例生图/视频
 
 📝 示例：

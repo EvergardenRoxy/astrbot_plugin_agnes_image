@@ -1,10 +1,8 @@
 """
 Agnes AI 视频生成及异步轮询逻辑
 """
-import os
 import time
 import asyncio
-import logging
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 
@@ -40,7 +38,7 @@ class VideoService:
         t0 = time.monotonic()
         is_aioqhttp = event.get_platform_name() == "aiocqhttp"
         output_format = self.plugin.plugin_config.video_output_format
-        auto_threshold_bytes = int(self.plugin.plugin_config.auto_threshold) * 1024 * 1024
+        auto_threshold_bytes = int(self.plugin.plugin_config.video_auto_threshold) * 1024 * 1024
 
         try:
             # 1. 提交任务并开始轮询

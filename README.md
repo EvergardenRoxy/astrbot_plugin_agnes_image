@@ -11,9 +11,9 @@
 
 ### 🎨 图像与视频生成
 
-- **文生图（Text-to-Image）**：根据自然语言描述直接生成图像
+- **文生图（Text-to-Image）**：根据自然语言描述直接生成图像（支持 `agnes-image-2.0-flash` / `agnes-image-2.1-flash` 两个生图模型）
 - **图生图（Image-to-Image）**：回复一张参考图后，附带描述对参考图进行修改；走 Agnes 原生 `extra_body.image` 通道（支持公网 URL 或 Data URI Base64）
-- **视频生成（Video Generation）**：调用 `agnes-video-v2.0` 模型，支持纯文本生成视频，或带参考图生成视频（保留原图尺寸或按预设比例）。
+- **视频生成（Video Generation）**：支持 `agnes-video-v2.0` / `agnes-video-2.5-flash` / `agnes-video-2.5` 三种模型，支持纯文本生成视频，或带参考图生成视频（按参考图原比例或预设比例）。
 
 ### 🚀 多种智能发送模式
 
@@ -23,18 +23,17 @@
 ### 🎛 丰富的参数控制
 
 - **生图分辨率档位**：`1K` / `2K` / `4K`（固定尺寸池下发，避免后端默默回退）
-  - ⚠️ `4K` 仅支持 `agnes-image-2.1-flash`，且因文件较大不推荐
-  - ⚠️ `agnes-image-2.0-flash` 仅支持 `1K` / `2K`
-- **视频分辨率档位**：`480p` / `720p` / `1080p`
-- **视频生成时长**：`3s` / `5s` / `10s` / `15s`
-- **预设长宽比**：生图支持 10 种比例（如 `16:9`、`1:1`、`3:4` 等），视频支持 5 种比例（`16:9`、`9:16`、`1:1`、`4:3`、`3:4`）
+  - ⚠️ `agnes-image-2.0-flash` 不支持4k；4K 因文件较大不推荐
+- **视频分辨率档位**：v2.0 用 `480p` / `720p` / `1080p`；2.5 系列用 `720P` / `960P` / `2K`（2.5-flash 固定 `720P`）
+- **视频生成时长**：`5s` / `10s` / `12s` / `15s` / `18s`（2.5 系列支持 5s/10s/12s；15s/18s 仅 v2.0 支持）
+- **预设长宽比**：生图支持 10 种比例（如 `16:9`、`1:1`、`3:4` 等），视频支持 5 种比例（`16:9`、`9:16`、`1:1`、`4:3`、`3:4`），2.5 系列额外支持 `21:9`
 - **4 档图像质量**：`auto`（不附加）/ `low` / `medium` / `high`（仅生图）
-- **模型切换**：内联 `--model` 或 `模型2.1` 可临时切换生图模型
+- **模型切换**：内联 `--model` 或 `模型2.1`/`模型flash` 可临时切换生图/生视频模型
 
 ### 🤖 LLM 原生工具支持
 
-- **大模型原生生图/改图工具 (`agnes_generate_image`)**：注册 `@llm_tool` 生图/改图工具，大模型可直接理解用户的自然语言生图/画图/改图诉求并自动调用，支持在对话中直接输入提示词、指定长宽比（`aspect_ratio`）与分辨率（`resolution`）或输入简单的描述让大模型润色提示词后生成并发送画作。
-- **大模型原生视频工具 (`agnes_submit_video` & `agnes_check_video`)**：注册 `@llm_tool` 视频生成双子工具，支持图生视频（自动检测消息中的参考图片）和文生视频，可通过自然语言指定生成内容、分辨率（`resolution`）、长宽比（`aspect_ratio`）与时长（`duration`）等参数；工具分离了提交与进度查询逻辑，实现更自然流畅的多轮对话交互。
+- **大模型原生生图/改图工具 (`agnes_generate_image`)**：注册 `@llm_tool` 生图/改图工具，大模型可直接理解用户的自然语言生图/画图/改图诉求并自动调用，支持在对话中直接输入提示词、指定模型（`model`）、长宽比（`aspect_ratio`）与分辨率（`resolution`），或输入简单的描述让大模型润色提示词后生成并发送画作。
+- **大模型原生视频工具 (`agnes_submit_video` & `agnes_check_video`)**：注册 `@llm_tool` 视频生成双子工具，支持图生视频（自动检测消息中的参考图片）和文生视频，可通过自然语言指定生成内容、模型（`model`）、分辨率（`resolution`）、长宽比（`aspect_ratio`）与时长（`duration`）等参数；工具分离了提交与进度查询逻辑，实现更自然流畅的多轮对话交互。
   - 💡 注：受限于 OneBot 协议端（如 QQ）单轮消息事件的触发机制，一次对话中无法**自动连续完成“提交+进度轮询”**。并为了防止采用单工具完成“提交+进度轮询”在长时间的视频生成等待过程中大模型对用户没有任何回复而造成体验割裂，故本插件采用双视频工具，在成功提交任务后，大模型会先提醒用户任务已提交并**交代需用户手动唤醒查询工具**；等待数分钟后，再由用户发送消息唤醒大模型调用 agnes_check_video 查询生成结果。
 
 - **大模型原生工具开关**：可通过插件配置面板中的「启用大模型原生工具」选项，一键控制大模型是否可自动调用生图与视频生成工具（关闭后大模型自动调用将被拦截，但手动指令依然可用）。
@@ -44,7 +43,7 @@
 - **网络异常自动重试**：`ConnectionResetError` / `ClientPayloadError` / `ClientOSError` 最多自动重试 3 次（间隔 1 秒）
 - **请求成功重置计数器**：避免误统计历史重试
 - **配置可调超时**：`request_timeout` 默认 300 秒
-- **视频异步生成与状态轮询**：针对视频接口（`agnes-video-v2.0`）采用异步任务制，插件在提交任务后，会优先使用推荐端点 `/agnesapi?video_id=<VIDEO_ID>` 进行 5 秒间隔的异步状态查询。当任务完成（`status: completed`）后，插件会自动精确解析 `metadata.url` 节点获取生成的视频，确保视频结果稳定送达。
+- **视频异步生成与状态轮询**：针对 Agnes 视频接口（`agnes-video-v2.0` / `agnes-video-2.5-flash` / `agnes-video-2.5`）采用异步任务制，插件在提交任务后，会优先使用推荐端点 `/agnesapi?video_id=<VIDEO_ID>` 进行 5 秒间隔的异步状态查询。当任务完成（`status: completed`）后，插件会自动精确解析 `metadata.url` 节点获取生成的视频，确保视频结果稳定送达。
 - **三道防线缓存清理**：
   - 发送成功 / 失败后立即清理临时文件
   - `try...finally` 异常路径兜底
@@ -95,20 +94,21 @@
 | `生视频 <描述>` | 生成视频（回复图片时自动切换为图生视频） |
 | `Agnes帮助` | 显示完整使用说明 |
 
-### 快捷中文参数（直接连写在描述后即可）
+### 快捷中文参数（直接连写在描述后即可，支持参数随机排序与模型名称简写 ）
 
 ```
 生图 <描述> [尺寸2K] [比例16:9] [质量高] [模型2.1]
 改图 <描述> [尺寸...] [比例...] [质量...] [模型...] [保留原比例]
-生视频 <描述> [尺寸1080p] [比例16:9] [保留原比例]
+生视频 <描述> [尺寸720p] [比例16:9] [时长12s] [保留原比例]
 ```
 
 | 中文前缀 | 对应英文 | 支持的值 |
 | --- | --- | --- |
-| `尺寸` | `--res` | `1K`/`2K`/`4K`（生图），`480p`/`720p`/`1080p`（视频） |
+| `尺寸` | `--res` | `1K`/`2K`/`4K`（生图），`480p`/`720p`/`1080p`/`720P`/`960P`/`2K`（视频，按模型支持） |
 | `比例` | `--ratio` | `16:9`/`1:1`/`4:3` 等预设比例 |
+| `时长` | `--duration` | `5s`/`10s`/`12s`（2.5 系列），`5s`/`10s`/`12s`/`15s`/`18s`（v2.0） |
 | `质量` | `--quality` | `高`/`中`/`低`/`自动` |
-| `模型` | `--model` | `2.1`/`2.0` |
+| `模型` | `--model` | 生图：`2.1`/`2.0`；视频：`v2.0`/`2.5`/`2.5-flash`/`flash` |
 | `保留原比例` | `--keep-size` | （无值标志）图生图/视频时保留参考图比例 |
 
 > **提示**：插件完全向下兼容原有的 `--res`、`--ratio` 等英文参数格式。
@@ -120,12 +120,12 @@
 生图 赛博朋克城市夜景 尺寸4K 比例16:9 模型2.1
 生图 一只猫 尺寸1K 比例16:9 质量高 模型2.0
 改图 把它变成水彩画 比例1:1 质量高 保留原比例
-生视频 樱花飘落 尺寸1080p 比例16:9
+生视频 樱花飘落 尺寸720p 比例16:9
 ```
 
 ### 💡 图生视频参考图传输方式配置推荐与原理
 
-图生图和图生视频的参考图输入规则并不完全相同：图生图走 Agnes 图像接口，插件可以将本地图片转换为 Data URI / Base64 后提交，因此通常可以正常读取本地图片；而图生视频走 Agnes-Video-V2.0 视频接口，官方文档要求图生视频、多图视频和关键帧动画使用可公网访问的图片 URL。
+图生图和图生视频的参考图输入规则并不完全相同：图生图走 Agnes 图像接口，插件可以将本地图片转换为 Data URI / Base64 后提交，因此通常可以正常读取本地图片；而图生视频走 Agnes 视频接口（`agnes-video-v2.0` / `agnes-video-2.5-flash` / `agnes-video-2.5`），官方文档要求图生视频、多图视频和关键帧动画使用可公网访问的图片 URL。
 
 因此，下面的传输方式主要用于 **图生视频**：当用户在聊天软件（如 QQ）里发送本地图片时，插件需要先把这张参考图转换成 Agnes 视频接口能够访问的公网 URL。插件提供了三种转换方式，其原理与配置推荐如下：
 
@@ -143,10 +143,7 @@
 3. **自定义第三方图床 (`third_party`)**
    - **原理**：上传至你配置的私有或商业图床（如 ImgBB、SM.MS 等），生成公网图片 URL 后交给 Agnes 视频接口读取。
    - **优点**：适合有稳定图床资源的用户。
-   - **缺点**：需要额外配置上传 API 地址和 Token，且第三方接口失效时会回退到免费图床。
-
-> **注意**：分辨率档 `1K` / `2K` / `4K` 使用**固定尺寸池**下发；
-> `4K` 仅支持 `agnes-image-2.1-flash`，`agnes-image-2.0-flash` 不支持。
+   - **缺点**：需要额外配置上传 API 地址和 Key，且第三方接口失效时会回退到免费图床。
 
 ### 💡 AstrBot 文件服务永久链接补丁说明
 
@@ -163,7 +160,7 @@ AstrBot 底层自带的文件服务生成的 Token 是极其严格的 **一次�
 
 Agnes AI 没有实现标准的 OpenAI `/v1/images/edits` 端点。本插件依据 Agnes 官方文档（`Agnes Image 2.0/2.1 Flash`）做了原生适配：
 
-- **端点**：`POST https://apihub.agnes-ai.cn/v1/images/generations`
+- **端点**：`POST https://api.agnes-ai.cn/v1/images/generations`（国内主节点，与默认 `api_base` 一致）
 - **文生图**：仅需 `model` / `prompt` / `size`（Base64 模式下发送 `return_base64: true`）
 - **图生图**：在 `extra_body.image` 数组中放参考图（支持公网 URL 或 Data URI Base64，Base64 模式下发送 `extra_body.response_format: "b64_json"`）
 - **不**发送 `tags: ["img2img"]`（官方明确不需要）
@@ -222,7 +219,7 @@ astrbot_plugin_agnes_image/
 └── .gitignore           # Git 忽略规则
 ```
 
-## 配置说明
+## ⚙️ 配置说明
 
 配置面板按功能分为三个大框：
 
@@ -230,8 +227,8 @@ astrbot_plugin_agnes_image/
 
 | 字段 | 说明 | 默认值 |
 | --- | --- | --- |
-| `api_base` | Agnes AI 网关地址 | `https://apihub.agnes-ai.cn/v1` |
-| `api_key` | API 密钥（前往官方主页 agnes-ai.com 注册获取免费 Key） | （必填） |
+| `api_base` | Agnes AI 网关地址 | `https://api.agnes-ai.cn/v1` |
+| `api_key` | API 密钥（前往官方主页 agnes-ai.cn（国内）或 agnes-ai.com（国际）注册获取免费 Key） | （必填） |
 | `proxy` | 代理地址（留空不使用，支持 http/https/socks5） | （空） |
 | `enable_llm_tools` | 启用大模型原生工具（开启后，可用自然语言要求大模型进行图片和视频生成） | `true` |
 
@@ -244,7 +241,7 @@ astrbot_plugin_agnes_image/
 | `default_aspect_ratio` | 默认长宽比（支持 `1:1`/`16:9`/`9:16`/`4:3`/`3:2`/`21:9` 等 10 种预设） | `3:2` |
 | `default_quality` | 默认质量档（`auto`/`low`/`medium`/`high`，作为后缀附加到提示词） | `high` |
 | `output_format` | 图片发送方式（`url` 直发零带宽 / `auto` 智能切换） | `url` |
-| `auto_threshold` | 智能切换文件大小阈值（单位 MB，超过该大小的图片自动下载后走流式上传） | `2` |
+| `auto_threshold` | 图片智能切换文件大小阈值（单位 MB，当图片发送方式为 `auto` 时，小于该值走 base64、大于等于该值走 file；视频有独立阈值 `video_auto_threshold`） | `2` |
 | `keep_original_size` | 改图时按参考图原比例生图（自动匹配最接近的预设比例，可用命令行 `--keep-size` 临时覆盖） | `true` |
 | `request_timeout` | 图片 API 请求超时时间（秒，生图接口调用上限） | `300` |
 
@@ -252,18 +249,21 @@ astrbot_plugin_agnes_image/
 
 | 字段 | 说明 | 默认值 |
 | --- | --- | --- |
-| `video_model` | 生视频模型 | `agnes-video-v2.0` |
-| `video_default_resolution` | 默认视频分辨率（`480p`/`720p`/`1080p`） | `480p` |
+| `video_model` | 生视频模型（`agnes-video-v2.0` / `agnes-video-2.5-flash` / `agnes-video-2.5`，2.5 标准版收费） | `agnes-video-2.5-flash` |
+| `video_default_resolution` | 默认视频分辨率（v2.0 用 `480p`/`720p`/`1080p`；2.5 系列用 `720P`/`960P`/`2K`，2.5-flash 固定 `720P`） | `720p` |
 | `video_default_aspect_ratio` | 默认视频长宽比 | `16:9` |
-| `video_default_duration` | 默认视频时长（`3s`/`5s`/`10s`/`15s`） | `15s` |
+| `video_default_duration` | 默认视频时长（`5s`/`10s`/`12s`/`15s`/`18s`；2.5 系列支持 5s/10s/12s，15s/18s 仅 v2.0 支持） | `12s` |
 | `video_output_format` | 视频发送方式（`url` 直发 / `auto` 智能切换） | `url` |
-| `video_keep_original_size` | 图生视频时是否保留参考图比例 | `true` |
+| `video_auto_threshold` | 视频智能切换文件大小阈值（单位 MB，当视频发送方式为 `auto` 时，小于该值走 base64、大于等于该值走 file） | `2` |
+| `video_keep_original_size` | 图生视频时按参考图原比例生视频（自动匹配最接近的预设比例） | `true` |
 | `video_request_timeout` | 视频生成及状态轮询的最大超时时间（秒） | `1000` |
 | `video_img_handling_method` | 图生视频本地参考图传输方式（`astrbot`/`third_party`/`free_public`） | `astrbot` |
 | `video_enable_astrbot_file_magic` | 是否开启 AstrBot 文件服务永久链接补丁 | `true` |
 | `video_file_service_base_url` | AstrBot 本地文件服务公网访问地址（面板外网地址，如 `http://IP:6185`） | （空） |
-| `third_party_upload_url` | 第三方图床上传 API 地址 | （空） |
-| `third_party_token` | 第三方图床上传 Token / Key | （空） |
+| `third_party_upload_url` | 第三方图床 API 地址 | （空） |
+| `third_party_token` | 第三方图床 Key | （空） |
+
+## ❓ 常见问题 (FAQ)
 
 ### 为什么自然语言要求 Bot 生成视频无法一次完成“提交+进度轮询”？
 - **原因说明**：受限于 OneBot 协议端（如 QQ）单轮消息事件的触发机制，一次对话中无法**自动连续完成“提交+进度轮询”**。为了防止采用单工具在长时间（数分钟）的视频生成等待过程中，大模型对用户没有任何回复而造成严重的交互体验割裂，本插件采用了双视频工具架构（`agnes_submit_video` 与 `agnes_check_video`）。
@@ -286,17 +286,42 @@ astrbot_plugin_agnes_image/
   3. **第三方图床**：将 `video_img_handling_method` 改为 `third_party`，配置公网可访问的图床（如 sm.ms / ImgURL / 聚合图床等）的 `third_party_upload_url` 与 `third_party_token`。
 
 
+### 为什么在 Agnes 官方控制台创建的 API Key 使用时提示无效？
+
+最常见的原因是**站点不匹配**——Agnes 的中国站（agnes-ai.cn）和国际站（agnes-ai.com）是两套完全独立的账号体系，各自创建的 API Key 不能跨站点使用。例如：将国际站控制台创建的 Key 配置到国内节点 `https://api.agnes-ai.cn/v1` 时，会返回 HTTP 401「无效的令牌」。解决方法：确认你的 Key 创建于哪个站点，然后参考下方关于 Agnes AI 中的 API 节点地址 将插件配置里的 API 地址 改为对应站点的节点即可。
+
 ## 关于 Agnes AI
 
 - **国内官方主页**：[agnes-ai.cn](https://agnes-ai.cn/) | **国际官方主页**：[agnes-ai.com](https://agnes-ai.com/)
 - **国内API 控制台**：[apihub.agnes-ai.cn](https://apihub.agnes-ai.cn/) | **国际API 控制台**：[apihub.agnes-ai.com](https://apihub.agnes-ai.com/)
-- **计费**：目前模型调用全部免费
+- **计费**：除了 Agnes Video 2.5 其它图像与视频模型当前免费；Agnes Video 2.5 标准版按输出时长计费（720P ¥0.15/秒、960P ¥0.25/秒、2K ¥0.35/秒）
 
-## 系统要求
+### API 节点地址
 
-- AstrBot `>=4.26`
-- Python 3.12+
+| 节点类型 | 地址 |
+| :--- | :--- |
+| 国内节点 | `https://api.agnes-ai.cn/v1` |
+| 国际主节点 | `https://apihub.agnes-ai.com/v1` |
+| 国际备用节点 | `https://apihub.agnes-ai.cn/v1` |
 
+> ⚠️ **注意**：中国站和国际站的账号体系相互独立，API Key 不可互用！在哪个站点创建的 Key 只能在对应站点的节点上使用。请确保 API Key 与所配置的节点地址来自同一站点。
+
+### 模型支持参数
+
+**🖼️ 生图模型：**
+
+| 模型 | 分辨率 | 长宽比 |
+| :--- | :--- | :--- |
+| `agnes-image-2.0-flash` | `1K` / `2K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `4:5` / `5:4` / `21:9` / `3:4` / `2:3` |
+| `agnes-image-2.1-flash` | `1K` / `2K` / `4K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `4:5` / `5:4` / `21:9` / `3:4` / `2:3` |
+
+**🎬 生视频模型：**
+
+| 模型 | 分辨率 | 长宽比 | 时长 |
+| :--- | :--- | :--- | :--- |
+| `agnes-video-v2.0` | `480p` / `720p` / `1080p` | `16:9` / `9:16` / `1:1` / `4:3` / `3:4` | `5s` / `10s` / `12s` / `15s` / `18s` |
+| `agnes-video-2.5-flash` | `720P` | `16:9` / `9:16` / `1:1` / `4:3` / `3:4` / `21:9` | `5s` / `10s` / `12s` |
+| `agnes-video-2.5` | `720P` / `960P` / `2K` | `16:9` / `9:16` / `1:1` / `4:3` / `3:4` / `21:9` | `5s` / `10s` / `12s` |
 ## 作者
 
 - 往昔的涟漪
@@ -308,5 +333,9 @@ astrbot_plugin_agnes_image/
 ## 仓库地址
 
 [https://github.com/CyreneLian/astrbot_plugin_agnes_image](https://github.com/CyreneLian/astrbot_plugin_agnes_image)
+
+## 🤝 贡献与支持
+
+欢迎提交 Issue 和 Pull Request 来帮助改进本插件。
 
 ## 如果这个插件对你有帮助，欢迎给个 ⭐ Star！

@@ -66,6 +66,8 @@ class ImageService:
             "长宽比": "ratio",
             "质量": "quality",
             "模型": "model",
+            "时长": "duration",
+            "时间": "duration",
         }
         
         value_alias_map = {
@@ -73,10 +75,21 @@ class ImageService:
             "中": "medium",
             "低": "low",
             "自动": "auto",
-            "2.1": "agnes-image-2.1-flash",
             "2.0": "agnes-image-2.0-flash",
-            "2.1flash": "agnes-image-2.1-flash",
+            "2.1": "agnes-image-2.1-flash",
             "2.0flash": "agnes-image-2.0-flash",
+            "2.1flash": "agnes-image-2.1-flash",
+            # 图片模型具体名称（直接输入完整名也可命中）
+            "agnes-image-2.0-flash": "agnes-image-2.0-flash",
+            "agnes-image-2.1-flash": "agnes-image-2.1-flash",
+            # 视频模型：具体名称 + 常用简写别名
+            "agnes-video-v2.0": "agnes-video-v2.0",
+            "agnes-video-2.5-flash": "agnes-video-2.5-flash",
+            "agnes-video-2.5": "agnes-video-2.5",
+            "v2.0": "agnes-video-v2.0",
+            "2.5": "agnes-video-2.5",
+            "2.5flash": "agnes-video-2.5-flash",
+            "flash": "agnes-video-2.5-flash",
         }
 
         flag_aliases = {

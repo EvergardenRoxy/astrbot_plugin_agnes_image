@@ -2,9 +2,6 @@
 Agnes AI 图像与视频上传、图床及文件服务魔改模块
 """
 import os
-import time
-import logging
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 import aiohttp
 
@@ -24,25 +21,51 @@ class Uploader:
     def __init__(self, plugin: Any):
         self.plugin = plugin
 
+    _IMG_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg", ".avif")
+
+    @staticmethod
+    def _looks_like_image_url(url: str) -> bool:
+        """判断 URL 是否像图片直链（以常见图片扩展名结尾，或含 i.ibb.co / i.imgur.com 等图床直链域名）"""
+        low = url.lower()
+        if low.endswith(Uploader._IMG_EXT):
+            return True
+        for host in ("i.ibb.co", "i.imgur.com", "s.ee", "i.postimg.cc", "telegra.ph", "catbox.moe", "i.loli.net"):
+            if host in low:
+                return True
+        return False
+
     def _find_url_in_json(self, data: Any) -> Optional[str]:
-        """递归查找 JSON 响应中的 URL"""
-        if isinstance(data, str):
-            if data.startswith(("http://", "https://")):
-                return data
+        """递归查找 JSON 响应中的 URL，优先返回图片直链（带图片后缀或图床 CDN 域名）"""
+        fallback: Optional[str] = None
+
+        def walk(node: Any) -> Optional[str]:
+            nonlocal fallback
+            if isinstance(node, str):
+                if node.startswith(("http://", "https://")):
+                    if self._looks_like_image_url(node):
+                        return node  # 图片直链：立即返回并向上传播
+                    if fallback is None:
+                        fallback = node  # 普通链接：暂存为兜底，不阻断遍历
+                return None
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if k.lower() in ("url", "link", "href", "shorturl") and isinstance(v, str) and v.startswith(("http://", "https://")):
+                        if self._looks_like_image_url(v):
+                            return v
+                        if fallback is None:
+                            fallback = v
+                    res = walk(v)
+                    if res:
+                        return res
+            elif isinstance(node, list):
+                for item in node:
+                    res = walk(item)
+                    if res:
+                        return res
             return None
-        if isinstance(data, dict):
-            for k, v in data.items():
-                if k.lower() in ("url", "link", "href", "shorturl"):
-                    if isinstance(v, str) and v.startswith(("http://", "https://")):
-                        return v
-                res = self._find_url_in_json(v)
-                if res:
-                    return res
-        if isinstance(data, list):
-            for item in data:
-                res = self._find_url_in_json(item)
-                if res:
-                    return res
+
+        direct = walk(data)
+        return direct if direct else fallback
         return None
 
     async def upload_to_public_host(self, file_path: str) -> str:

@@ -2,7 +2,7 @@
 Agnes AI 图像生成核心模块
 
 封装 Agnes AI 官方 API（兼容 Agnes Image 2.0/2.1 Flash）：
-- 端点：POST https://apihub.agnes-ai.cn/v1/images/generations
+- 端点：POST https://api.agnes-ai.cn/v1/images/generations
 - 文生图：仅需 model/prompt/size
 - 图生图：在请求体顶层加 image 数组（支持 URL 或 Data URI Base64）
 - 官方文档明确：不要把 image 嵌套在 extra_body 里、不要把 response_format 放在顶层、不要发 tags: ["img2img"]
@@ -106,7 +106,7 @@ def _parse_error_body(body: str) -> tuple[str | None, str | None]:
 
 # ============== 预设配置 ==============
 
-# 分辨率档位（使用固定尺寸池；4K 仅 agnes-image-2.1-flash 支持）
+# 分辨率档位（使用固定尺寸池；agnes-image-2.0-flash 不支持4k）
 PRESET_RESOLUTIONS = ("1K", "2K", "4K")
 
 # 长宽比预设
@@ -224,11 +224,17 @@ def _gcd(a: int, b: int) -> int:
 
 
 def _resolve_size(resolution: str, aspect_ratio: str) -> str:
-    """根据分辨率档与长宽比返回固定 WxH 尺寸。"""
+    """根据分辨率档与长宽比返回固定 WxH 尺寸（非法值直接抛错，不再静默回退）。"""
     if resolution not in SIZE_PRESETS:
-        resolution = "2K"
+        raise ValueError(
+            f"分辨率档位不受支持: {resolution}。"
+            f"支持的分辨率: {' / '.join(PRESET_RESOLUTIONS)}"
+        )
     if aspect_ratio not in PRESET_ASPECT_RATIOS:
-        aspect_ratio = "1:1"
+        raise ValueError(
+            f"长宽比不受支持: {aspect_ratio}。"
+            f"支持的长宽比: {' / '.join(PRESET_ASPECT_RATIOS)}"
+        )
     return SIZE_PRESETS[resolution].get(aspect_ratio, SIZE_PRESETS[resolution]["1:1"])
 
 
@@ -317,7 +323,7 @@ def _extract_image_b64(result: dict[str, Any]) -> Optional[str]:
                 return first["url"]
 
     if result.get("b64_json"):
-        return result["b64_json"]
+        return res_normult["b64_json"]
     if result.get("image"):
         return result["image"]
     return None
@@ -529,7 +535,7 @@ class AgnesVideoRequestConfig:
     model: str
     prompt: str
     reference_images: list[str] = field(default_factory=list)
-    duration: str = "5s"  # "3s", "5s", "10s", "15s"
+    duration: str = "5s"  # "5s", "10s", "12s", "15s", "18s"
     proxy: Optional[str] = None
     timeout: int = 300  # API 请求超时时间
     output_format: str = "url"  # "url" 或 "file"
@@ -538,14 +544,52 @@ class AgnesVideoRequestConfig:
     width: Optional[int] = None
     height: Optional[int] = None
 
+# ==========================================
+# 视频生成功能 (Agnes-Video-V2.0 / Agnes-Video-2.5)
+# ==========================================
+
+# Agnes Video 2.5 系列模型（使用新的参数体系：seconds/mode/size/aspect_ratio）
+VIDEO_25_MODELS = {"agnes-video-2.5-flash", "agnes-video-2.5"}
+
+# 2.5 系列 resolution 档位映射（兼容旧版 480p/720p/1080p 写法）
+V25_SIZE_MAP = {
+    "480p": "720P",
+    "720p": "720P",
+    "1080p": "960P",
+    "720P": "720P",
+    "960P": "960P",
+    "2K": "2K",
+}
+# Flash 模型固定只支持 720P
+V25_FLASH_SIZE = "720P"
+
+# 2.5 系列 duration 映射：档位 → seconds 字符串（官方文档支持 "4"~"12"）
+V25_DURATION_MAP = {
+    "4s": "4",
+    "5s": "5",
+    "6s": "6",
+    "7s": "7",
+    "8s": "8",
+    "9s": "9",
+    "10s": "10",
+    "11s": "11",
+    "12s": "12",
+}
+
+# 2.5 系列支持的画幅比（额外支持 21:9）
+V25_RATIOS = {"21:9", "16:9", "4:3", "1:1", "3:4", "9:16"}
+
 def _resolve_video_params(duration: str) -> dict[str, int]:
-    # 根据官方文档，frame_rate 推荐 24
-    if duration == "3s":
-        return {"num_frames": 81, "frame_rate": 24}
-    elif duration == "10s":
+    # 根据官方文档，frame_rate 推荐 24，时长=num_frames/24
+    # num_frames 必须 ≤441 且遵循 8n+1 规则
+    if duration == "10s":
         return {"num_frames": 241, "frame_rate": 24}
+    elif duration == "12s":
+        return {"num_frames": 289, "frame_rate": 24}  # 8×36+1 = 289，289/24 ≈ 12.04s
     elif duration == "15s":
         return {"num_frames": 361, "frame_rate": 24}
+    elif duration == "18s":
+        return {"num_frames": 441, "frame_rate": 24}  # 8×55+1，441/24 ≈ 18.375s（上限）
     else:  # 默认 5s
         return {"num_frames": 121, "frame_rate": 24}
 
@@ -573,18 +617,108 @@ VIDEO_SIZE_PRESETS = {
     }
 }
 
-def _build_video_payload(config: AgnesVideoRequestConfig) -> dict[str, Any]:
-    # 统一按分辨率档位 + 宽高比选择标准尺寸；width/height 仅作为显式兜底。
+def _resolve_v25_size(model: str, res: str) -> str:
+    """2.5 系列分辨率严格解析：仅接受 2.5 系列原生档位，旧版档位一律拦截报错。"""
+    res_norm = str(res).strip().upper()  # 归一化：720p -> 720P
+    if model == "agnes-video-2.5-flash":
+        if res_norm == "720P":
+            return "720P"
+        raise ValueError(
+            f"分辨率档位不受 {model} 支持: {res}。"
+            f"模型 {model} 支持的分辨率: 720P"
+        )
+    # 2.5 标准版：只认原生档位，旧档位 480p/720p/1080p 不再自动映射
+    if res_norm in ("720P", "960P", "2K"):
+        return res
+    raise ValueError(
+        f"分辨率档位不受 {model} 支持: {res}。"
+        f"模型 {model} 支持的分辨率: 720P / 960P / 2K（请您使用 2.5 系列的档位写法，"
+        f"旧版 480p/720p/1080p 不再自动映射）"
+    )
+
+
+def _resolve_v25_ratio(model: str, ratio: str) -> str:
+    """2.5 系列长宽比严格解析：白名单外直接抛错，不再静默回退 16:9。"""
+    if ratio not in V25_RATIOS:
+        raise ValueError(
+            f"长宽比不受 {model} 支持: {ratio}。"
+            f"模型 {model} 支持的长宽比: {' / '.join(sorted(V25_RATIOS, key=lambda r: -int(r.split(':')[0])/int(r.split(':')[1])))}"
+        )
+    return ratio
+
+
+def _resolve_v25_seconds(model: str, dur: str) -> str:
+    """2.5 系列时长严格解析：仅接受 4~12 秒档位，15s 等超限档位直接抛错。"""
+    dur = str(dur).strip().lower()
+    if dur in V25_DURATION_MAP:
+        return V25_DURATION_MAP[dur]
+    raise ValueError(
+        f"视频时长不受 {model} 支持: {dur}。"
+        f"模型 {model} 支持的时长: 5s/10s/12s（2.5 系列最长 12 秒，15s 不受支持）"
+    )
+
+
+def _build_video_payload_v25(config: AgnesVideoRequestConfig) -> dict[str, Any]:
+    """Agnes Video 2.5 系列：seconds/mode/size/aspect_ratio 新参数体系。"""
+    model = config.model
     res = config.resolution or "720p"
     ratio = config.aspect_ratio or "16:9"
+    dur = config.duration or "5s"
+
+    if not (config.prompt or "").strip():
+        raise ValueError("请提供视频描述 prompt，不能为空。")
+
+    size = _resolve_v25_size(model, res)
+    ratio = _resolve_v25_ratio(model, ratio)
+    seconds = _resolve_v25_seconds(model, dur)
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": config.prompt,
+        "seconds": seconds,
+        "mode": "text",
+        "size": size,
+        "aspect_ratio": ratio,
+    }
+
+    ref_images = config.reference_images or []
+    if ref_images:
+        image_list = [ref.strip() for ref in ref_images if ref and ref.strip()]
+        if len(image_list) == 1:
+            # 单图：keyframe 模式，首帧控制（图生视频）
+            payload["mode"] = "keyframe"
+            payload["first_frame"] = image_list[0]
+        elif len(image_list) > 1:
+            # 多图：reference 模式，图片参考列表
+            payload["mode"] = "reference"
+            payload["images"] = image_list
+
+    return payload
+
+
+V20_RESOLUTIONS = {"480p", "720p", "1080p"}
+V20_RATIOS = {"16:9", "9:16", "1:1", "4:3", "3:4"}
+V20_DURATIONS = {"5s", "10s", "12s", "15s", "18s"}
+
+
+def _build_video_payload_v20(config: AgnesVideoRequestConfig) -> dict[str, Any]:
+    """Agnes Video V2.0：width/height + num_frames/frame_rate 旧参数体系。"""
+    # 统一按分辨率档位 + 宽高比选择标准尺寸；width/height 仅作为显式兜底。
+    res = (config.resolution or "720p").strip().lower()
+    ratio = config.aspect_ratio or "16:9"
+
+    if not (config.prompt or "").strip():
+        raise ValueError("请提供视频描述 prompt，不能为空。")
+    if res not in V20_RESOLUTIONS:
+        raise ValueError(f"分辨率档位不受 {config.model} 支持: {res}。模型 {config.model} 支持的分辨率: {' / '.join(sorted(V20_RESOLUTIONS))}")
+    if ratio not in V20_RATIOS:
+        raise ValueError(f"长宽比不受 {config.model} 支持: {ratio}。模型 {config.model} 支持的长宽比: {' / '.join(list(V20_RATIOS))}")
+    duration = (config.duration or "5s").strip().lower()
+    if duration not in V20_DURATIONS:
+        raise ValueError(f"视频时长不受 {config.model} 支持: {config.duration or '未填'}。模型 {config.model} 支持的时长: 5s/10s/12s/15s/18s")
+
     size_map = VIDEO_SIZE_PRESETS.get(res, VIDEO_SIZE_PRESETS["720p"])
-
-    if config.width and config.height:
-        w, h = config.width, config.height
-    else:
-        w, h = size_map.get(ratio, size_map.get("16:9", (1152, 768)))
-
-    # 如果传入的尺寸与目标比例不一致，优先落回标准表中的尺寸
+    w, h = size_map.get(ratio, size_map.get("16:9", (1152, 768)))
     std = size_map.get(ratio)
     if std:
         w, h = std
@@ -595,11 +729,11 @@ def _build_video_payload(config: AgnesVideoRequestConfig) -> dict[str, Any]:
         "width": w,
         "height": h,
     }
-    
+
     # 填入帧数和帧率
     params = _resolve_video_params(config.duration)
     payload.update(params)
-    
+
     ref_images = config.reference_images or []
     if ref_images:
         image_list = [ref.strip() for ref in ref_images if ref and ref.strip()]
@@ -611,8 +745,15 @@ def _build_video_payload(config: AgnesVideoRequestConfig) -> dict[str, Any]:
             # 多图视频或关键帧：Agnes 要求传入多图时必须显式指定 mode="keyframes"
             payload["mode"] = "keyframes"
             payload["extra_body"] = {"image": image_list}
-            
+
     return payload
+
+
+def _build_video_payload(config: AgnesVideoRequestConfig) -> dict[str, Any]:
+    """按模型分流：2.5 系列走新参数体系，其余走 V2.0 旧体系。"""
+    if config.model in VIDEO_25_MODELS:
+        return _build_video_payload_v25(config)
+    return _build_video_payload_v20(config)
 
 async def generate_video_task(config: AgnesVideoRequestConfig) -> tuple[str, float]:
     """
@@ -693,6 +834,10 @@ async def generate_video_task(config: AgnesVideoRequestConfig) -> tuple[str, flo
             data.get("file_url"),
             data.get("mp4_url"),
         ]
+        # Agnes Video 2.5：文档标注 metadata.url，实测另在顶层 url 字段（已覆盖）
+        _meta = data.get("metadata")
+        if isinstance(_meta, dict):
+            candidates.append(_meta.get("url"))
         output = data.get("output") or data.get("result") or data.get("data")
         if isinstance(output, dict):
             candidates.extend([
