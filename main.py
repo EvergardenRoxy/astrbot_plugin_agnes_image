@@ -25,7 +25,7 @@ from astrbot.api.message_components import Image as AstrImage, Video, Plain, Bas
 from astrbot.core.message.message_event_result import MessageEventResult
 from astrbot.api.star import Context, Star, register
 from astrbot.core.star.star_tools import StarTools
-from astrbot.core.config import astrbot_config
+from astrbot.core import astrbot_config
 
 # 本地模块导入
 from .models.config import AgnesPluginConfig
@@ -71,7 +71,7 @@ _AGNES_FILE_SERVICE_MAGIC_PATCHED = False
     "astrbot_plugin_agnes_image",
     "往昔的涟漪",
     "Agnes AI 图像与视频生成插件，依据 Agnes 官方文档进行了原生适配以实现完全免费、较高质量的定制化生成体验，支持文生图、图生图以及视频生成。",
-    "2.2.0",
+    "2.2.1",
     "https://github.com/CyreneLian/astrbot_plugin_agnes_image",
 )
 class AgnesImagePlugin(Star):
@@ -320,7 +320,7 @@ class AgnesImagePlugin(Star):
                             base_url = astrbot_config.get("callback_api_base", "").strip().rstrip("/")
 
                         if not base_url:
-                            raise Exception("未配置插件的“AstrBot文件服务公网地址”，且全局 callback_api_base 也为空")
+                            raise Exception("未配置插件的“AstrBot文件服务公网地址”，且 AstrBot 设置的「对外可达的回调接口地址」也为空")
 
                         public_url = f"{base_url}/api/file/{token}"
                         refs.append(public_url)
@@ -1427,7 +1427,7 @@ class AgnesImagePlugin(Star):
     @filter.command("Agnes帮助")
     async def cmd_help(self, event: AstrMessageEvent):
         """查看帮助"""
-        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.2.0
+        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.2.1
 ━━━━━━━━━━━━
 🌸 核心指令：
 • 生图 <描述> - 生成图片

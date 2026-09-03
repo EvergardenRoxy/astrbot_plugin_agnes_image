@@ -323,7 +323,7 @@ def _extract_image_b64(result: dict[str, Any]) -> Optional[str]:
                 return first["url"]
 
     if result.get("b64_json"):
-        return res_normult["b64_json"]
+        return result["b64_json"]
     if result.get("image"):
         return result["image"]
     return None

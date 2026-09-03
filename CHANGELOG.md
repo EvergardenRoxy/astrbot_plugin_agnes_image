@@ -1,5 +1,14 @@
 # 📊 astrbot_plugin_agnes_image CHANGELOG
 
+## 🌸 v2.2.1 (2026-09-04)
+> **版本定位**：修复 Base64 输出模式拼写错误与 astrbot_config 导入错误等的小修复版本。
+
+### 🐛 Bug 修复
+- **修复 Base64 输出模式的隐藏Bug**：`_extract_image_b64()` 中 `res_normult["b64_json"]` 为未定义变量的拼写错误（应为 `result["b64_json"]`）。当 Agnes API 返回顶层 `b64_json` 格式响应时（`return_base64: true` 场景）会触发 NameError，导致该次生图失败且重试无效；现已修正，顶层 `b64_json` / `image` 响应均可正常提取。常规 URL 输出模式（`data[].url`）不受此 bug 影响。
+
+- **修复参考图生视频 astrbot_config 导入错误**：`_extract_video_reference_images()` 中通过 `from astrbot.core.config import astrbot_config` 导入的是配置**模块**而非配置实例，模块对象没有 `.get()` 方法——当参考图传输方式为 astrbot 且插件「AstrBot文件服务公网地址」（`video_file_service_base_url`）未配置时，回退读取全局 `callback_api_base` 会触发 AttributeError，导致参考图生视频必现失败（改图走 Base64 Data URI 通道不受影响）。现已修正导入为 `from astrbot.core import astrbot_config`（配置实例），回退链恢复正常：插件公网地址为空时自动回退到 AstrBot 设置的「对外可达的回调接口地址」。
+
+
 ## 🌸 v2.2.0 (2026-08-29)
 > **版本定位**：Agnes Video 2.5 系列深度适配、大模型工具优化与新增参数错误拦截等的大版本升级。
 

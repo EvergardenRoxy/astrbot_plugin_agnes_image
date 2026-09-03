@@ -221,7 +221,7 @@
       "video_file_service_base_url": {
         "type": "string",
         "description": "AstrBot文件服务公网地址",
-        "hint": "选择 astrbot 方式时，在此填写你面板的外网访问地址（如 http://你的IP:6185）。",
+        "hint": "选择 astrbot 方式时，在此填写你面板的外网访问地址（如 http://你的IP:6185）。留空时将自动回退到 AstrBot 设置的「对外可达的回调接口地址」。",
         "default": ""
       },
       "third_party_upload_url": {

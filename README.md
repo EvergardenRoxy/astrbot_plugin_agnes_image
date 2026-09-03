@@ -7,7 +7,7 @@
 ### 💎 完全免费与较高质量
 
 - **完全免费**：前往官方主页 [agnes-ai.cn](https://agnes-ai.cn)（国内）或 [agnes-ai.com](https://agnes-ai.com)（国际）注册即可获取免费 API Key。
-- **较高质量**：Agnes-Image-2.0-Flash 在 Artificial Analysis Image Editing 排行榜中位列 Top 20（ELO 1,184），2.1 版本更针对高信息密度与复杂视觉细节进行了深度优化。
+- **较高质量**：Agnes-Image-2.0-Flash 在 Artificial Analysis Image Editing 排行榜中位列 Top 20（ELO 1,184），2.1 版本更针对高信息密度与复杂视觉细节进行了深度优化；Agnes-Video-2.5 在 Artificial Analysis Text to Video 排行榜中排名 #17（ELO 1,082），支持同步音频生成。
 
 ### 🎨 图像与视频生成
 
