@@ -7,11 +7,11 @@
 ### 💎 完全免费与较高质量
 
 - **完全免费**：前往官方主页 [agnes-ai.cn](https://agnes-ai.cn)（国内）或 [agnes-ai.com](https://agnes-ai.com)（国际）注册即可获取免费 API Key。
-- **较高质量**：Agnes-Image-2.0-Flash 在 Artificial Analysis Image Editing 排行榜中位列 Top 20（ELO 1,184），2.1 版本更针对高信息密度与复杂视觉细节进行了深度优化；Agnes-Video-2.5 在 Artificial Analysis Text to Video 排行榜中排名 #17（ELO 1,082），支持同步音频生成。
+- **较高质量**：Agnes-Image-2.0-Flash 在 Artificial Analysis Image Editing 排行榜中位列 Top 20（ELO 1,184），2.1 Flash 版本更针对高信息密度与复杂视觉细节进行了深度优化，2.5 Flash 进一步支持多图合成与构图保留；Agnes-Video-2.5 在 Artificial Analysis Text to Video 排行榜中排名 #17（ELO 1,082），支持同步音频生成。
 
 ### 🎨 图像与视频生成
 
-- **文生图（Text-to-Image）**：根据自然语言描述直接生成图像（支持 `agnes-image-2.0-flash` / `agnes-image-2.1-flash` 两个生图模型）
+- **文生图（Text-to-Image）**：根据自然语言描述直接生成图像（支持 `agnes-image-2.0-flash` / `agnes-image-2.1-flash` / `agnes-image-2.5-flash` 生图模型）
 - **图生图（Image-to-Image）**：回复一张参考图后，附带描述对参考图进行修改；走 Agnes 原生 `extra_body.image` 通道（支持公网 URL 或 Data URI Base64）
 - **视频生成（Video Generation）**：支持 `agnes-video-v2.0` / `agnes-video-2.5-flash` / `agnes-video-2.5` 三种模型，支持纯文本生成视频，或带参考图生成视频（按参考图原比例或预设比例）。
 
@@ -108,7 +108,7 @@
 | `比例` | `--ratio` | `16:9`/`1:1`/`4:3` 等预设比例 |
 | `时长` | `--duration` | `5s`/`10s`/`12s`（2.5 系列），`5s`/`10s`/`12s`/`15s`/`18s`（v2.0） |
 | `质量` | `--quality` | `高`/`中`/`低`/`自动` |
-| `模型` | `--model` | 生图：`2.1`/`2.0`；视频：`v2.0`/`2.5`/`2.5-flash`/`flash` |
+| `模型` | `--model` | 生图：`2.1`/`2.0`/`2.5image`；视频：`v2.0`/`2.5`/`2.5flash`/`flash` |
 | `保留原比例` | `--keep-size` | （无值标志）图生图/视频时保留参考图比例 |
 
 > **提示**：插件完全向下兼容原有的 `--res`、`--ratio` 等英文参数格式。
@@ -236,8 +236,8 @@ astrbot_plugin_agnes_image/
 
 | 字段 | 说明 | 默认值 |
 | --- | --- | --- |
-| `model` | 生图模型（默认 agnes-image-2.1-flash，可切换至其他 Agnes 生图模型） | `agnes-image-2.1-flash` |
-| `default_resolution` | 默认分辨率档位（`1K`/`2K`/`4K`，4K 生成耗时较长约 2 分钟） | `1K` |
+| `model` | 生图模型（默认 agnes-image-2.5-flash，可切换至其他 Agnes 生图模型） | `agnes-image-2.5-flash` |
+| `default_resolution` | 默认分辨率档位（`1K`/`2K`/`4K`，4K agnes-image-2.0-flash 不支持） | `1K` |
 | `default_aspect_ratio` | 默认长宽比（支持 `1:1`/`16:9`/`9:16`/`4:3`/`3:2`/`21:9` 等 10 种预设） | `3:2` |
 | `default_quality` | 默认质量档（`auto`/`low`/`medium`/`high`，作为后缀附加到提示词） | `high` |
 | `output_format` | 图片发送方式（`url` 直发零带宽 / `auto` 智能切换） | `url` |
@@ -314,6 +314,7 @@ astrbot_plugin_agnes_image/
 | :--- | :--- | :--- |
 | `agnes-image-2.0-flash` | `1K` / `2K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `4:5` / `5:4` / `21:9` / `3:4` / `2:3` |
 | `agnes-image-2.1-flash` | `1K` / `2K` / `4K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `4:5` / `5:4` / `21:9` / `3:4` / `2:3` |
+| `agnes-image-2.5-flash` | `1K` / `2K` / `4K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `2:3` / `3:4` / `21:9`（4K 仅支持 1:1）|
 
 **🎬 生视频模型：**
 

@@ -48,6 +48,7 @@ from .agnes_api import (
 AGNES_MODELS = [
     "agnes-image-2.0-flash",
     "agnes-image-2.1-flash",
+    "agnes-image-2.5-flash",
 ]
 
 # Agnes 视频生成模型列表
@@ -71,7 +72,7 @@ _AGNES_FILE_SERVICE_MAGIC_PATCHED = False
     "astrbot_plugin_agnes_image",
     "往昔的涟漪",
     "Agnes AI 图像与视频生成插件，依据 Agnes 官方文档进行了原生适配以实现完全免费、较高质量的定制化生成体验，支持文生图、图生图以及视频生成。",
-    "2.2.1",
+    "2.3.0",
     "https://github.com/CyreneLian/astrbot_plugin_agnes_image",
 )
 class AgnesImagePlugin(Star):
@@ -681,8 +682,11 @@ class AgnesImagePlugin(Star):
 
         selected_model = opts.get("model") or self.plugin_config.model
         selected_res = opts.get("res") or self.plugin_config.default_resolution
-        if selected_res == "4K" and selected_model != "agnes-image-2.1-flash":
+        selected_ratio = opts.get("ratio") or self.plugin_config.default_aspect_ratio
+        if selected_res == "4K" and selected_model not in ("agnes-image-2.1-flash", "agnes-image-2.5-flash"):
             errors.append("◆ `agnes-image-2.0-flash` 不支持4k，请切换模型或改用 `--res 2K`。")
+        if selected_model == "agnes-image-2.5-flash" and selected_ratio in ("4:5", "5:4"):
+            errors.append("◆ `agnes-image-2.5-flash` 不支持 4:5 / 5:4 长宽比，请改用 `--ratio 1:1/16:9/3:2` 等。")
 
         if not errors:
             return None
@@ -707,10 +711,11 @@ class AgnesImagePlugin(Star):
         支持的图像模型及其参数：
         - agnes-image-2.0-flash：分辨率 1K/2K；比例 1:1/16:9/4:3/3:2/9:16/4:5/5:4/21:9/3:4/2:3。
         - agnes-image-2.1-flash：分辨率 1K/2K/4K；比例 1:1/16:9/4:3/3:2/9:16/4:5/5:4/21:9/3:4/2:3。
+        - agnes-image-2.5-flash：分辨率 1K/2K/4K（4K 仅支持 1:1）；比例 1:1/16:9/4:3/3:2/9:16/2:3/3:4/21:9。
 
         Args:
             prompt (str): 图片生成的详细提示词描述（建议使用较详细英文描述或中文描述）。
-            model (str, optional): 图像模型，可选 agnes-image-2.0-flash / agnes-image-2.1-flash。
+            model (str, optional): 图像模型，可选 agnes-image-2.0-flash / agnes-image-2.1-flash / agnes-image-2.5-flash。
             aspect_ratio (str, optional): 图片长宽比。
             resolution (str, optional): 分辨率档位。
             注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
@@ -1427,7 +1432,7 @@ class AgnesImagePlugin(Star):
     @filter.command("Agnes帮助")
     async def cmd_help(self, event: AstrMessageEvent):
         """查看帮助"""
-        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.2.1
+        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.3.0
 ━━━━━━━━━━━━
 🌸 核心指令：
 • 生图 <描述> - 生成图片

@@ -126,6 +126,40 @@ PRESET_ASPECT_RATIOS = (
 # 质量档（作为 suffix 追加到 prompt）
 PRESET_QUALITIES = ("auto", "low", "medium", "high")
 
+# Agnes Image 2.5 Flash 官方尺寸表（1K/2K/4K 档 × 8 种长宽比；插件不提供 3K 档位）
+SIZE_PRESETS_V25: dict[str, dict[str, str]] = {
+    "1K": {
+        "1:1": "1024x1024",
+        "16:9": "1312x736",
+        "4:3": "1152x864",
+        "3:2": "1248x832",
+        "9:16": "736x1312",
+        "2:3": "832x1248",
+        "3:4": "864x1152",
+        "21:9": "1568x672",
+    },
+    "2K": {
+        "1:1": "2048x2048",
+        "16:9": "2624x1472",
+        "4:3": "2304x1728",
+        "3:2": "2496x1664",
+        "9:16": "1472x2624",
+        "2:3": "1664x2496",
+        "3:4": "1728x2304",
+        "21:9": "3136x1344",
+    },
+    "4K": {
+        # 云端实测：单边上限 4096（exceeds maximum 4096x4096），官方文档尺寸表的
+        # 16:9=5248x2944 等实际会被 400 拒绝，因此 4K 档仅保留 1:1 比例。
+        "1:1": "4096x4096",
+    },
+}
+
+# Agnes Image 2.5 Flash 官方支持的长宽比（不含 4:5 / 5:4）
+V25_ASPECT_RATIOS = (
+    "1:1", "3:4", "4:3", "16:9", "9:16", "2:3", "3:2", "21:9",
+)
+
 # 固定尺寸池：Agnes 对非标准 WxH 可能回退到 1K，因此不要动态推导任意尺寸。
 # 1K 档尽量使用常见尺寸；2K 档使用对应 2 倍或主流长边尺寸。
 SIZE_PRESETS: dict[str, dict[str, str]] = {
@@ -238,6 +272,26 @@ def _resolve_size(resolution: str, aspect_ratio: str) -> str:
     return SIZE_PRESETS[resolution].get(aspect_ratio, SIZE_PRESETS[resolution]["1:1"])
 
 
+def _resolve_size_v25(resolution: str, aspect_ratio: str) -> str:
+    """Agnes Image 2.5 Flash 专属尺寸解析（1K/2K/4K 档 × 8 种长宽比；非法值直接抛错）。"""
+    if resolution not in SIZE_PRESETS_V25:
+        raise ValueError(
+            f"分辨率档位不受 agnes-image-2.5-flash 支持: {resolution}。"
+            f"支持的分辨率: {' / '.join(SIZE_PRESETS_V25)}"
+        )
+    if aspect_ratio not in SIZE_PRESETS_V25[resolution]:
+        if resolution == "4K":
+            raise ValueError(
+                f"agnes-image-2.5-flash 的 4K 档仅支持 1:1 长宽比（云端单边上限 4096x4096），"
+                f"当前长宽比: {aspect_ratio}。请改用 1:1，或选择 1K/2K 档位，或切换 agnes-image-2.1-flash 模型。"
+            )
+        raise ValueError(
+            f"长宽比不受 agnes-image-2.5-flash 支持: {aspect_ratio}。"
+            f"支持的长宽比: {' / '.join(V25_ASPECT_RATIOS)}"
+        )
+    return SIZE_PRESETS_V25[resolution][aspect_ratio]
+
+
 def _build_agnes_payload(config: AgnesRequestConfig) -> dict[str, Any]:
     """构建 Agnes AI 请求体（图生图与文生图共用 /v1/images/generations）"""
     payload: dict[str, Any] = {
@@ -249,7 +303,10 @@ def _build_agnes_payload(config: AgnesRequestConfig) -> dict[str, Any]:
     if config.custom_size:
         payload["size"] = config.custom_size
     else:
-        size_value = _resolve_size(config.resolution, config.aspect_ratio)
+        if config.model == "agnes-image-2.5-flash":
+            size_value = _resolve_size_v25(config.resolution, config.aspect_ratio)
+        else:
+            size_value = _resolve_size(config.resolution, config.aspect_ratio)
         if size_value:
             payload["size"] = size_value
 

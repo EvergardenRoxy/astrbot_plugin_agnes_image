@@ -82,6 +82,8 @@ class ImageService:
             # 图片模型具体名称（直接输入完整名也可命中）
             "agnes-image-2.0-flash": "agnes-image-2.0-flash",
             "agnes-image-2.1-flash": "agnes-image-2.1-flash",
+            "agnes-image-2.5-flash": "agnes-image-2.5-flash",
+            "2.5image": "agnes-image-2.5-flash",
             # 视频模型：具体名称 + 常用简写别名
             "agnes-video-v2.0": "agnes-video-v2.0",
             "agnes-video-2.5-flash": "agnes-video-2.5-flash",

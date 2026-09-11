@@ -41,14 +41,15 @@
         "hint": "选择默认图像生成模型。",
         "options": [
           "agnes-image-2.0-flash",
-          "agnes-image-2.1-flash"
+          "agnes-image-2.1-flash",
+          "agnes-image-2.5-flash"
         ],
-        "default": "agnes-image-2.1-flash"
+        "default": "agnes-image-2.5-flash"
       },
       "default_resolution": {
         "description": "默认分辨率档位",
         "type": "string",
-        "hint": "选择默认图像分辨率档位。4K 仅 agnes-image-2.1-flash 支持。由于 4K 尺寸较大，不推荐使用。",
+        "hint": "选择默认图像分辨率档位。4K agnes-image-2.0-flash 不支持。",
         "options": [
           "1K",
           "2K",

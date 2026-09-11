@@ -11,7 +11,7 @@ class AgnesPluginConfig:
     api_base: str = "https://api.agnes-ai.cn/v1"
     proxy: str = ""
     enable_llm_tools: bool = True
-    model: str = "agnes-image-2.1-flash"
+    model: str = "agnes-image-2.5-flash"
     default_resolution: str = "1K"
     default_aspect_ratio: str = "3:2"
     default_quality: str = "high"
@@ -52,7 +52,7 @@ class AgnesPluginConfig:
             api_base=str(config.get("api_base", "https://api.agnes-ai.cn/v1")).strip(),
             proxy=str(config.get("proxy", "")).strip(),
             enable_llm_tools=bool(config.get("enable_llm_tools", True)),
-            model=str(config.get("model", "agnes-image-2.1-flash")).strip(),
+            model=str(config.get("model", "agnes-image-2.5-flash")).strip(),
             default_resolution=str(config.get("default_resolution", "1K")).strip(),
             default_aspect_ratio=str(config.get("default_aspect_ratio", "3:2")).strip(),
             default_quality=str(config.get("default_quality", "high")).strip(),
