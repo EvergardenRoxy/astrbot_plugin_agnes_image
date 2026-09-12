@@ -7,11 +7,11 @@
 ### 💎 完全免费与较高质量
 
 - **完全免费**：前往官方主页 [agnes-ai.cn](https://agnes-ai.cn)（国内）或 [agnes-ai.com](https://agnes-ai.com)（国际）注册即可获取免费 API Key。
-- **较高质量**：Agnes-Image-2.0-Flash 在 Artificial Analysis Image Editing 排行榜中位列 Top 20（ELO 1,184），2.1 Flash 版本更针对高信息密度与复杂视觉细节进行了深度优化，2.5 Flash 进一步支持多图合成与构图保留；Agnes-Video-2.5 在 Artificial Analysis Text to Video 排行榜中排名 #17（ELO 1,082），支持同步音频生成。
+- **较高质量**：生图方面，Image 2.1 Flash 深度优化高信息密度与复杂视觉细节，Image 2.5 Flash 进一步支持多图合成与构图保留；视频方面，Agnes-Video-2.5 在 Artificial Analysis Text to Video 排行榜中排名 #17（ELO 1,082），支持同步音频生成。
 
 ### 🎨 图像与视频生成
 
-- **文生图（Text-to-Image）**：根据自然语言描述直接生成图像（支持 `agnes-image-2.0-flash` / `agnes-image-2.1-flash` / `agnes-image-2.5-flash` 生图模型）
+- **文生图（Text-to-Image）**：根据自然语言描述直接生成图像（支持 `agnes-image-2.1-flash` / `agnes-image-2.5-flash` 生图模型）
 - **图生图（Image-to-Image）**：回复一张参考图后，附带描述对参考图进行修改；走 Agnes 原生 `extra_body.image` 通道（支持公网 URL 或 Data URI Base64）
 - **视频生成（Video Generation）**：支持 `agnes-video-v2.0` / `agnes-video-2.5-flash` / `agnes-video-2.5` 三种模型，支持纯文本生成视频，或带参考图生成视频（按参考图原比例或预设比例）。
 
@@ -23,7 +23,6 @@
 ### 🎛 丰富的参数控制
 
 - **生图分辨率档位**：`1K` / `2K` / `4K`（固定尺寸池下发，避免后端默默回退）
-  - ⚠️ `agnes-image-2.0-flash` 不支持4k；4K 因文件较大不推荐
 - **视频分辨率档位**：v2.0 用 `480p` / `720p` / `1080p`；2.5 系列用 `720P` / `960P` / `2K`（2.5-flash 固定 `720P`）
 - **视频生成时长**：`5s` / `10s` / `12s` / `15s` / `18s`（2.5 系列支持 5s/10s/12s；15s/18s 仅 v2.0 支持）
 - **预设长宽比**：生图支持 10 种比例（如 `16:9`、`1:1`、`3:4` 等），视频支持 5 种比例（`16:9`、`9:16`、`1:1`、`4:3`、`3:4`），2.5 系列额外支持 `21:9`
@@ -108,7 +107,7 @@
 | `比例` | `--ratio` | `16:9`/`1:1`/`4:3` 等预设比例 |
 | `时长` | `--duration` | `5s`/`10s`/`12s`（2.5 系列），`5s`/`10s`/`12s`/`15s`/`18s`（v2.0） |
 | `质量` | `--quality` | `高`/`中`/`低`/`自动` |
-| `模型` | `--model` | 生图：`2.1`/`2.0`/`2.5image`；视频：`v2.0`/`2.5`/`2.5flash`/`flash` |
+| `模型` | `--model` | 生图：`2.1`/`2.5image`；视频：`v2.0`/`2.5`/`2.5flash`/`flash` |
 | `保留原比例` | `--keep-size` | （无值标志）图生图/视频时保留参考图比例 |
 
 > **提示**：插件完全向下兼容原有的 `--res`、`--ratio` 等英文参数格式。
@@ -118,7 +117,7 @@
 ```
 生图 一只猫
 生图 赛博朋克城市夜景 尺寸4K 比例16:9 模型2.1
-生图 一只猫 尺寸1K 比例16:9 质量高 模型2.0
+生图 一只猫 尺寸1K 比例16:9 质量高 模型2.1
 改图 把它变成水彩画 比例1:1 质量高 保留原比例
 生视频 樱花飘落 尺寸720p 比例16:9
 ```
@@ -158,7 +157,7 @@ AstrBot 底层自带的文件服务生成的 Token 是极其严格的 **一次�
 
 ## 适配细节
 
-Agnes AI 没有实现标准的 OpenAI `/v1/images/edits` 端点。本插件依据 Agnes 官方文档（`Agnes Image 2.0/2.1 Flash`）做了原生适配：
+Agnes AI 没有实现标准的 OpenAI `/v1/images/edits` 端点。本插件依据 Agnes 官方文档（`Agnes Image 2.1/2.5 Flash`）做了原生适配：
 
 - **端点**：`POST https://api.agnes-ai.cn/v1/images/generations`（国内主节点，与默认 `api_base` 一致）
 - **文生图**：仅需 `model` / `prompt` / `size`（Base64 模式下发送 `return_base64: true`）
@@ -237,7 +236,7 @@ astrbot_plugin_agnes_image/
 | 字段 | 说明 | 默认值 |
 | --- | --- | --- |
 | `model` | 生图模型（默认 agnes-image-2.5-flash，可切换至其他 Agnes 生图模型） | `agnes-image-2.5-flash` |
-| `default_resolution` | 默认分辨率档位（`1K`/`2K`/`4K`，4K agnes-image-2.0-flash 不支持） | `1K` |
+| `default_resolution` | 默认分辨率档位（`1K`/`2K`/`4K`） | `1K` |
 | `default_aspect_ratio` | 默认长宽比（支持 `1:1`/`16:9`/`9:16`/`4:3`/`3:2`/`21:9` 等 10 种预设） | `3:2` |
 | `default_quality` | 默认质量档（`auto`/`low`/`medium`/`high`，作为后缀附加到提示词） | `high` |
 | `output_format` | 图片发送方式（`url` 直发零带宽 / `auto` 智能切换） | `url` |
@@ -312,7 +311,6 @@ astrbot_plugin_agnes_image/
 
 | 模型 | 分辨率 | 长宽比 |
 | :--- | :--- | :--- |
-| `agnes-image-2.0-flash` | `1K` / `2K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `4:5` / `5:4` / `21:9` / `3:4` / `2:3` |
 | `agnes-image-2.1-flash` | `1K` / `2K` / `4K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `4:5` / `5:4` / `21:9` / `3:4` / `2:3` |
 | `agnes-image-2.5-flash` | `1K` / `2K` / `4K` | `1:1` / `16:9` / `4:3` / `3:2` / `9:16` / `2:3` / `3:4` / `21:9`（4K 仅支持 1:1）|
 

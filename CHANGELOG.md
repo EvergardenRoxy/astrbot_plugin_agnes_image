@@ -1,5 +1,9 @@
 # 📊 astrbot_plugin_agnes_image CHANGELOG
 
+## 🌸 v2.3.1 (2026-09-12)
+
+- **移除官方已下架的 `agnes-image-2.0-flash` 生图模型**：Agnes 官方已将 `agnes-image-2.0-flash` 从云端下架。插件据此清理了模型白名单、配置面板选项、指令别名、大模型工具描述与 README 文档中的全部 2.0 相关条目；生图模型现仅保留 `agnes-image-2.1-flash` 与 `agnes-image-2.5-flash`。
+
 ## 🌸 v2.3.0 (2026-09-11)
 > **版本定位**：Agnes Image 2.5 Flash 接入与适配等的大版本升级。
 

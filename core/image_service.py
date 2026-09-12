@@ -75,12 +75,9 @@ class ImageService:
             "中": "medium",
             "低": "low",
             "自动": "auto",
-            "2.0": "agnes-image-2.0-flash",
             "2.1": "agnes-image-2.1-flash",
-            "2.0flash": "agnes-image-2.0-flash",
             "2.1flash": "agnes-image-2.1-flash",
             # 图片模型具体名称（直接输入完整名也可命中）
-            "agnes-image-2.0-flash": "agnes-image-2.0-flash",
             "agnes-image-2.1-flash": "agnes-image-2.1-flash",
             "agnes-image-2.5-flash": "agnes-image-2.5-flash",
             "2.5image": "agnes-image-2.5-flash",

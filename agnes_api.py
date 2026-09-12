@@ -1,7 +1,7 @@
 """
 Agnes AI 图像生成核心模块
 
-封装 Agnes AI 官方 API（兼容 Agnes Image 2.0/2.1 Flash）：
+封装 Agnes AI 官方 API（兼容 Agnes Image 2.1/2.5 Flash）：
 - 端点：POST https://api.agnes-ai.cn/v1/images/generations
 - 文生图：仅需 model/prompt/size
 - 图生图：在请求体顶层加 image 数组（支持 URL 或 Data URI Base64）
@@ -106,7 +106,7 @@ def _parse_error_body(body: str) -> tuple[str | None, str | None]:
 
 # ============== 预设配置 ==============
 
-# 分辨率档位（使用固定尺寸池；agnes-image-2.0-flash 不支持4k）
+# 分辨率档位（使用固定尺寸池）
 PRESET_RESOLUTIONS = ("1K", "2K", "4K")
 
 # 长宽比预设
