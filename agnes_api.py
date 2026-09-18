@@ -12,7 +12,6 @@ Agnes AI 图像生成核心模块
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 import json
 from dataclasses import dataclass, field
@@ -20,7 +19,7 @@ from typing import Any, Optional
 
 import aiohttp
 
-logger = logging.getLogger(__name__)
+from astrbot.api import logger
 
 
 class AgnesAPIError(Exception):

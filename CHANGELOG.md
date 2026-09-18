@@ -1,5 +1,9 @@
 # 📊 astrbot_plugin_agnes_image CHANGELOG
 
+## 🌸 v2.3.2 (2026-09-19)
+
+- 日志记录器改用 AstrBot 框架 logger，符合插件开发规范。
+
 ## 🌸 v2.3.1 (2026-09-12)
 
 - **移除官方已下架的 `agnes-image-2.0-flash` 生图模型**：Agnes 官方已将 `agnes-image-2.0-flash` 从云端下架。插件据此清理了模型白名单、配置面板选项、指令别名、大模型工具描述与 README 文档中的全部 2.0 相关条目；生图模型现仅保留 `agnes-image-2.1-flash` 与 `agnes-image-2.5-flash`。
