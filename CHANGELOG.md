@@ -1,5 +1,9 @@
 # 📊 astrbot_plugin_agnes_image CHANGELOG
 
+## 🌸 v2.3.3 (2026-09-23)
+
+- 修复生图与生视频工具的 Tool Schema 参数为空问题，v2.2.0 起 Args 段内的说明行导致 docstring 解析失败，大模型无法传参调用，现已修复。
+
 ## 🌸 v2.3.2 (2026-09-19)
 
 - 日志记录器改用 AstrBot 框架 logger，符合插件开发规范。

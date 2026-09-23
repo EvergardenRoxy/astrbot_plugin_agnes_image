@@ -71,7 +71,7 @@ _AGNES_FILE_SERVICE_MAGIC_PATCHED = False
     "astrbot_plugin_agnes_image",
     "往昔的涟漪",
     "Agnes AI 图像与视频生成插件，依据 Agnes 官方文档进行了原生适配以实现完全免费、较高质量的定制化生成体验，支持文生图、图生图以及视频生成。",
-    "2.3.2",
+    "2.3.3",
     "https://github.com/CyreneLian/astrbot_plugin_agnes_image",
 )
 class AgnesImagePlugin(Star):
@@ -709,12 +709,13 @@ class AgnesImagePlugin(Star):
         - agnes-image-2.1-flash：分辨率 1K/2K/4K；比例 1:1/16:9/4:3/3:2/9:16/4:5/5:4/21:9/3:4/2:3。
         - agnes-image-2.5-flash：分辨率 1K/2K/4K（4K 仅支持 1:1）；比例 1:1/16:9/4:3/3:2/9:16/2:3/3:4/21:9。
 
+        注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
+
         Args:
             prompt (str): 图片生成的详细提示词描述（建议使用较详细英文描述或中文描述）。
             model (str, optional): 图像模型，可选 agnes-image-2.1-flash / agnes-image-2.5-flash。
             aspect_ratio (str, optional): 图片长宽比。
             resolution (str, optional): 分辨率档位。
-            注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
         """
 
         if not self.plugin_config.enable_llm_tools:
@@ -949,13 +950,14 @@ class AgnesImagePlugin(Star):
         - agnes-video-2.5-flash：分辨率 720P；比例 16:9/9:16/1:1/4:3/3:4/21:9；时长 5s/10s/12s。
         - agnes-video-2.5：分辨率 720P/960P/2K；比例 16:9/9:16/1:1/4:3/3:4/21:9；时长 5s/10s/12s。
 
+        注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
+
         Args:
             prompt (str): 视频生成的详细描述（建议使用较详细英文描述或中文描述）。
             model (str, optional): 视频模型，可选 agnes-video-v2.0 / agnes-video-2.5-flash / agnes-video-2.5（注意：agnes-video-2.5 为付费模型，如无用户明确要求请勿主动使用）。
             resolution (str, optional): 视频分辨率档位。
             aspect_ratio (str, optional): 视频长宽比。
             duration (str, optional): 视频时长。
-            注意：所有参数需与所选模型匹配（具体支持范围见上方模型说明）；如果用户没有明确要求某个参数，请留空该参数，使用插件默认值。
         """
 
         if not self.plugin_config.enable_llm_tools:
@@ -1428,7 +1430,7 @@ class AgnesImagePlugin(Star):
     @filter.command("Agnes帮助")
     async def cmd_help(self, event: AstrMessageEvent):
         """查看帮助"""
-        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.3.2
+        help_text = """🎨 Agnes 图像与视频生成插件帮助 v2.3.3
 ━━━━━━━━━━━━
 🌸 核心指令：
 • 生图 <描述> - 生成图片
