@@ -107,7 +107,7 @@ class Uploader:
                 filename = os.path.basename(file_path)
                 field_name = getattr(self.plugin.plugin_config, "third_party_file_field", "image").strip() or "image"
                 with open(file_path, 'rb') as f:
-                  data.add_field(field_name, f, filename=filename)
+                    data.add_field(field_name, f, filename=filename)
                     headers = {}
                     if token:
                         headers['Authorization'] = f"Bearer {token}"
