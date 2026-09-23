@@ -34,6 +34,7 @@ class AgnesPluginConfig:
     video_file_service_base_url: str = ""
     third_party_upload_url: str = ""
     third_party_token: str = ""
+    third_party_file_field: str = "image"
 
     @staticmethod
     def _safe_int(value: Any, default: int) -> int:
